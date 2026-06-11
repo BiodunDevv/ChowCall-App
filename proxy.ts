@@ -33,6 +33,11 @@ function getTenantFromHost(host: string) {
 
 	const parts = hostname.split(".");
 
+	if (rootHostname && hostname.endsWith(`.${rootHostname}`)) {
+		const tenant = hostname.slice(0, -rootHostname.length - 1).split(".")[0];
+		return tenant && !ignoredSubdomains.has(tenant) ? tenant : null;
+	}
+
 	// Vercel preview/production hosts:
 	// chowcall.vercel.app is the product root, tenant.chowcall.vercel.app is a tenant.
 	if (hostname.endsWith(".vercel.app")) {
