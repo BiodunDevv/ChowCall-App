@@ -9,7 +9,13 @@ import { FloatingPaths } from "@/components/Auth/floating-paths";
 import { LogoLoadingScreen } from "@/components/shared/logo-loading-screen";
 import { getPublicTenantPath } from "@/lib/auth";
 import { getRootOrigin } from "@/lib/token";
-import { publicOrderingApi, type PublicMenuItem, formatMoney } from "@/lib/public-ordering";
+import {
+  publicOrderingApi,
+  type PublicMenuItem,
+  type PublicOrderItem,
+  type PublicOrderSession,
+  formatMoney,
+} from "@/lib/public-ordering";
 import { isOpenNow, getNextOpeningTime } from "@/lib/opening-hours";
 import { TenantBanner } from "@/components/TenantLanding/tenant-banner";
 import { TenantHeader } from "@/components/TenantLanding/tenant-header";
@@ -74,6 +80,8 @@ export default function PublicAiOrderPage() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [inputText, setInputText] = useState("");
   const [aiTyping, setAiTyping] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [statusToken, setStatusToken] = useState<string | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -132,7 +140,17 @@ export default function PublicAiOrderPage() {
   });
 
   const checkout = useMutation({
-    mutationFn: () => publicOrderingApi.checkout(tenantSlug, { ...quotePayload, customer }),
+    mutationFn: async () => {
+      if (!sessionId) {
+        return publicOrderingApi.checkout(tenantSlug, { ...quotePayload, customer });
+      }
+      const created = await publicOrderingApi.createOrder(tenantSlug, { sessionId, customer });
+      const orderId = created.data?.order?.id ?? created.data?.order?._id;
+      const token = created.data?.statusToken ?? null;
+      if (token) setStatusToken(token);
+      if (!orderId) return created;
+      return publicOrderingApi.createPaymentLink(tenantSlug, orderId, { token: token ?? statusToken ?? undefined });
+    },
     onSuccess: (res) => {
       const url = res.data?.authorizationUrl;
       if (url) window.location.href = url;
@@ -142,6 +160,39 @@ export default function PublicAiOrderPage() {
   const pricing = quote.data?.data?.pricing as {
     itemSubtotal?: number; deliveryFee?: number; serviceFee?: number; totalPayable?: number;
   } | undefined;
+
+  const syncDraftSession = useCallback((session?: PublicOrderSession | null) => {
+    if (!session) return;
+    setSessionId(session.id);
+    if (session.fulfilmentType === "pickup" || session.fulfilmentType === "delivery") {
+      setFulfilmentType(session.fulfilmentType);
+    }
+    if (session.customer) {
+      setCustomer((prev) => ({
+        ...prev,
+        name: typeof session.customer?.name === "string" ? session.customer.name : prev.name,
+        phone: typeof session.customer?.phone === "string" ? session.customer.phone : prev.phone,
+        email: typeof session.customer?.email === "string" ? session.customer.email : prev.email,
+        address: typeof session.customer?.address === "string" ? session.customer.address : prev.address,
+        landmark: typeof session.customer?.landmark === "string" ? session.customer.landmark : prev.landmark,
+      }));
+    }
+    if (Array.isArray(session.items)) {
+      setCart(
+        session.items.map((item: PublicOrderItem) => {
+          const id = item.menuItemId ?? item.name;
+          return {
+            ...item,
+            id,
+            menuItemId: item.menuItemId,
+            name: item.name,
+            quantity: Number(item.quantity ?? 1),
+            unitPrice: Number(item.unitPrice ?? 0),
+          };
+        }),
+      );
+    }
+  }, [setCart]);
 
   // ── Cart helpers
   const addToCart = useCallback((item: PublicMenuItem, flash = true) => {
@@ -225,6 +276,21 @@ export default function PublicAiOrderPage() {
     return { added: [], reply: "I can help you place an order! Just tell me what you'd like — for example: 'I want jollof rice and a Chapman' — or browse the menu by tapping 'View Menu' below." };
   }, [menuItems, cart, cartCount, cartTotal, addToCart]);
 
+  useEffect(() => {
+    if (!tenantSlug || !restaurant || sessionId) return;
+    let mounted = true;
+    publicOrderingApi
+      .startChatSession(tenantSlug)
+      .then((res) => {
+        if (!mounted) return;
+        syncDraftSession(res.data.session);
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, [restaurant, sessionId, syncDraftSession, tenantSlug]);
+
   const sendChat = useCallback(async (text: string) => {
     if (!text.trim() || !tenantSlug) return;
     const userMsg: ChatMsg = { role: "user", text };
@@ -232,21 +298,20 @@ export default function PublicAiOrderPage() {
     setInputText("");
     setAiTyping(true);
 
-    // Try to parse menu items from the text locally first
-    const { added, reply: localReply } = parseAndAddItems(text);
-
-    // Also call the backend chat endpoint
     try {
-      const res = await publicOrderingApi.chat(tenantSlug, text, cart);
-      const backendReply = res.data?.reply;
-      const finalReply = added.length > 0 ? localReply : (backendReply || localReply);
+      const res = await publicOrderingApi.sendChatMessage(tenantSlug, { sessionId, message: text });
+      syncDraftSession(res.data.session);
+      const added = (res.data.addedItems ?? []).map((item) => `${item.quantity > 1 ? `${item.quantity}× ` : ""}${item.name}`);
+      const finalReply = res.data.assistantMessage || res.data.reply || "I updated your order.";
+      if (res.data.paymentReady) setCheckoutStep("details");
       setMessages((prev) => [...prev, { role: "ai", text: finalReply, itemsAdded: added }]);
     } catch {
+      const { added, reply: localReply } = parseAndAddItems(text);
       setMessages((prev) => [...prev, { role: "ai", text: localReply, itemsAdded: added }]);
     } finally {
       setAiTyping(false);
     }
-  }, [tenantSlug, parseAndAddItems, cart]);
+  }, [tenantSlug, sessionId, syncDraftSession, parseAndAddItems]);
 
   // Scroll chat to bottom on new messages
   useEffect(() => {

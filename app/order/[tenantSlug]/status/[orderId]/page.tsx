@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { LogoLoadingScreen } from "@/components/shared/logo-loading-screen";
@@ -9,12 +9,15 @@ import { getPublicTenantPath } from "@/lib/auth";
 
 export default function PublicOrderStatusPage() {
 	const params = useParams<{ tenantSlug: string; orderId: string }>();
+	const searchParams = useSearchParams();
 	const tenantSlug = params?.tenantSlug ?? "";
 	const orderId = params?.orderId ?? "";
+	const token = searchParams.get("token") ?? undefined;
+	const phone = searchParams.get("phone") ?? undefined;
 
 	const status = useQuery({
-		queryKey: ["public-order-status", tenantSlug, orderId],
-		queryFn: () => publicOrderingApi.status(tenantSlug, orderId),
+		queryKey: ["public-order-status", tenantSlug, orderId, token, phone],
+		queryFn: () => publicOrderingApi.status(tenantSlug, orderId, { token, phone }),
 		retry: false,
 		enabled: Boolean(tenantSlug && orderId),
 	});

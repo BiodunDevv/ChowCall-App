@@ -55,6 +55,38 @@ export type PublicOrderItem = {
 	notes?: string;
 };
 
+export type PublicOrderSession = {
+	id: string;
+	status?: string;
+	items: PublicOrderItem[];
+	fulfilmentType?: "pickup" | "delivery" | null;
+	customer?: Record<string, unknown>;
+	pricing?: Record<string, number>;
+	needs?: string[];
+	orderId?: string | null;
+};
+
+export type PublicChatResponse = {
+	session: PublicOrderSession | null;
+	assistantMessage: string;
+	reply?: string;
+	addedItems?: PublicOrderItem[];
+	unavailableItems?: string[];
+	ambiguousItems?: string[];
+	needs?: string[];
+	paymentReady?: boolean;
+	nextAction?: string;
+};
+
+export type PublicOrderCheckoutResponse = {
+	order?: { _id?: string; id?: string; status?: string };
+	payment?: Record<string, unknown>;
+	authorizationUrl?: string;
+	statusUrl?: string;
+	statusToken?: string;
+	paymentRequired?: boolean;
+};
+
 type PublicResponse<T> = { data: T; tenant?: PublicTenant };
 
 async function publicFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -83,18 +115,50 @@ export const publicOrderingApi = {
 			{ method: "POST", body: JSON.stringify(payload) },
 		),
 	checkout: (tenantSlug: string, payload: unknown) =>
-		publicFetch<PublicResponse<{ authorizationUrl?: string; statusUrl?: string; order?: { _id?: string; id?: string } }>>(
+		publicFetch<PublicResponse<PublicOrderCheckoutResponse>>(
 			`/v1/public-ordering/${tenantSlug}/checkout`,
 			{ method: "POST", body: JSON.stringify(payload) },
 		),
 	chat: (tenantSlug: string, message: string, cart: unknown[] = []) =>
-		publicFetch<{ data: { reply: string } }>(
+		publicFetch<{ data: PublicChatResponse }>(
 			`/v1/public-ordering/${tenantSlug}/chat`,
 			{ method: "POST", body: JSON.stringify({ message, cart }) },
 		),
-	status: (tenantSlug: string, orderId: string) =>
+	startChatSession: (tenantSlug: string) =>
+		publicFetch<{ data: PublicChatResponse }>(
+			`/v1/public-ordering/${tenantSlug}/chat/session`,
+			{ method: "POST", body: JSON.stringify({}) },
+		),
+	sendChatMessage: (tenantSlug: string, payload: { sessionId?: string | null; message: string }) =>
+		publicFetch<{ data: PublicChatResponse }>(
+			`/v1/public-ordering/${tenantSlug}/chat/message`,
+			{ method: "POST", body: JSON.stringify(payload) },
+		),
+	createOrder: (tenantSlug: string, payload: { sessionId: string; customer?: unknown }) =>
+		publicFetch<PublicResponse<PublicOrderCheckoutResponse>>(
+			`/v1/public-ordering/${tenantSlug}/orders`,
+			{ method: "POST", body: JSON.stringify(payload) },
+		),
+	createPaymentLink: (tenantSlug: string, orderId: string, payload: { token?: string }) =>
+		publicFetch<PublicResponse<PublicOrderCheckoutResponse>>(
+			`/v1/public-ordering/${tenantSlug}/orders/${orderId}/payment-link`,
+			{ method: "POST", body: JSON.stringify(payload) },
+		),
+	status: (tenantSlug: string, orderId: string, options?: { token?: string; phone?: string }) => {
+		const params = new URLSearchParams();
+		if (options?.token) params.set("token", options.token);
+		if (options?.phone) params.set("phone", options.phone);
+		const query = params.toString();
+		return publicFetch<PublicResponse<{ tenant: PublicTenant; order: Record<string, unknown> }>>(
+			`/v1/public-ordering/${tenantSlug}/orders/${orderId}/status${query ? `?${query}` : ""}`,
+		);
+	},
+	statusLookup: (tenantSlug: string, orderId: string, payload: { token?: string; phone?: string }) =>
 		publicFetch<PublicResponse<{ tenant: PublicTenant; order: Record<string, unknown> }>>(
-			`/v1/public-ordering/${tenantSlug}/orders/${orderId}/status`,
+			`/v1/public-ordering/${tenantSlug}/orders/${orderId}/status?${new URLSearchParams({
+				...(payload.token ? { token: payload.token } : {}),
+				...(payload.phone ? { phone: payload.phone } : {}),
+			}).toString()}`,
 		),
 };
 
