@@ -23,6 +23,10 @@ function getRootDomain(): string {
   if (configuredRoot && hostname.endsWith(configuredRoot.hostname)) {
     return configuredRoot.hostname;
   }
+  if (hostname.endsWith(".vercel.app")) {
+    const parts = hostname.split(".");
+    return parts.length >= 4 ? parts.slice(1).join(".") : hostname;
+  }
   // IP address — can't set wildcard domain cookies on IPs, fall back to exact host
   if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) return hostname;
   if (hostname === "localhost" || hostname.endsWith(".localhost")) return "localhost";
@@ -89,6 +93,12 @@ export function getRootOrigin(): string {
     return configuredRoot.origin;
   }
   const portSuffix = port ? `:${port}` : "";
+
+  if (hostname.endsWith(".vercel.app")) {
+    const parts = hostname.split(".");
+    const root = parts.length >= 4 ? parts.slice(1).join(".") : hostname;
+    return `${protocol}//${root}${portSuffix}`;
+  }
 
   // IP address — no subdomain, return as-is
   if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
