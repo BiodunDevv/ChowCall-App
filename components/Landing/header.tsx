@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { MobileNav } from "@/components/Landing/mobile-nav";
 import { ThemeToggler } from "@/components/Landing/theme-toggler";
 import { useAuthStore } from "@/stores/auth-store";
-import { getPostAuthPath, isSuperAdmin, getUserTenantSlug, getTenantScopedPath } from "@/lib/auth";
+import { authApi, getPostAuthPath } from "@/lib/auth";
 import { IconLayoutDashboard } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 export const navLinks = [
 	{
@@ -27,9 +29,23 @@ export const navLinks = [
 export function Header() {
 	const scrolled = useScroll(10);
 	const user = useAuthStore((state) => state.user);
+	const setUser = useAuthStore((state) => state.setUser);
 
-	const dashboardHref = user ? getPostAuthPath(user) : null;
-	const firstName = user?.name?.split(" ")[0] ?? "";
+	const session = useQuery({
+		queryKey: ["auth", "landing-header"],
+		queryFn: authApi.me,
+		enabled: Boolean(user),
+		retry: false,
+		staleTime: 60_000,
+	});
+
+	useEffect(() => {
+		if (session.data?.user) setUser(session.data.user);
+	}, [session.data?.user, setUser]);
+
+	const activeUser = session.data?.user ?? user;
+	const dashboardHref = activeUser ? getPostAuthPath(activeUser) : null;
+	const firstName = activeUser?.name?.split(" ")[0] ?? "";
 
 	return (
 		<header
@@ -49,7 +65,7 @@ export function Header() {
 					}
 				)}
 			>
-				<ChowCallLogo className="px-2" href="#" />
+				<ChowCallLogo className="px-2" href="/" />
 				<div className="hidden items-center gap-2 md:flex">
 					<div>
 						{navLinks.map((link) => (
@@ -59,7 +75,7 @@ export function Header() {
 						))}
 					</div>
 
-					{user && dashboardHref ? (
+					{activeUser && dashboardHref ? (
 						<>
 							<span className="text-sm text-muted-foreground">
 								Hi, <span className="font-medium text-foreground">{firstName}</span>

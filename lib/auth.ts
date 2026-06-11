@@ -56,6 +56,15 @@ const normalizeTenant = (value: unknown): AuthTenant | null => {
 			asString(value.logoUrl) ??
 			asString(value.logo_url) ??
 			asString(value.logo),
+		onboardingStatus:
+			asString(value.onboardingStatus) ??
+			asString(value.onboarding_status) ??
+			(isObject(value.onboarding) ? asString(value.onboarding.status) : undefined) ??
+			null,
+		subscriptionStatus:
+			asString(value.subscriptionStatus) ??
+			asString(value.subscription_status) ??
+			null,
 	};
 };
 
@@ -187,9 +196,14 @@ export const getPostAuthPath = (
 		return `${getRootOrigin()}/super-admin/dashboard`;
 	}
 	const tenantSlug = getUserTenantSlug(user);
+	const onboardingStatus = user?.tenant?.onboardingStatus?.toLowerCase();
+	const tenantPath =
+		onboardingStatus === "live" || onboardingStatus === "completed"
+			? "/dashboard"
+			: "/onboarding";
 	return tenantSlug
-		? getTenantScopedPath(tenantSlug, "/onboarding")
-		: "/onboarding";
+		? getTenantScopedPath(tenantSlug, tenantPath)
+		: tenantPath;
 };
 
 /** Builds a same-origin path: /[tenantSlug][path]  e.g. /burgerhub/dashboard */

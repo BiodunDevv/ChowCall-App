@@ -11,6 +11,8 @@ export type AuthTenant = {
 	name?: string;
 	slug?: string;
 	logoUrl?: string;
+	onboardingStatus?: string | null;
+	subscriptionStatus?: string | null;
 };
 
 export type AuthUser = {
