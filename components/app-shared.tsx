@@ -97,46 +97,6 @@ export const tenantNavGroups: SidebarNavGroup[] = [
     ],
   },
   {
-    label: "Configuration",
-    items: [
-      {
-        title: "Delivery Pricing",
-        path: "/settings/delivery",
-        icon: <IconTruck />,
-      },
-      {
-        title: "Service Fees",
-        path: "/settings/fees",
-        icon: <IconCurrencyDollar />,
-      },
-      {
-        title: "Payment",
-        path: "/settings/payment",
-        icon: <IconCreditCard />,
-      },
-      {
-        title: "AI Agent",
-        path: "/settings/ai-agent",
-        icon: <IconRobot />,
-      },
-      {
-        title: "Public AI Page",
-        path: "/settings/storefront",
-        icon: <IconWorld />,
-      },
-      {
-        title: "Phone Routing",
-        path: "/settings/phone",
-        icon: <IconPhoneCall />,
-      },
-      {
-        title: "Opening Hours",
-        path: "/settings/hours",
-        icon: <IconClock />,
-      },
-    ],
-  },
-  {
     label: "Team",
     items: [
       {

@@ -14,7 +14,12 @@ export type PublicTenant = {
 	description?: string | null;
 	category?: string | null;
 	instagramUrl?: string | null;
+	twitterUrl?: string | null;
+	facebookUrl?: string | null;
+	tiktokUrl?: string | null;
+	websiteUrl?: string | null;
 	whatsappNumber?: string | null;
+	heroHeadline?: string | null;
 	bannerText?: string | null;
 	bannerEnabled?: boolean | null;
 	showPopularItems?: boolean | null;

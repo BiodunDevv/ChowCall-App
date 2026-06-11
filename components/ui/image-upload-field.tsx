@@ -8,7 +8,7 @@
  * - Upload states: idle → uploading → done → error
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,16 @@ export function ImageUploadField({
 		value ? "done" : "idle",
 	);
 	const [preview, setPreview] = useState<string>(value);
+
+	// Sync external value into local preview (handles pre-fill from API)
+	const prevValueRef = useRef(value);
+	useEffect(() => {
+		if (value && value !== prevValueRef.current && uploadState !== "uploading") {
+			prevValueRef.current = value;
+			setPreview(value);
+			setUploadState("done");
+		}
+	}, [value, uploadState]);
 	const [isDragging, setIsDragging] = useState(false);
 	const [tab, setTab] = useState<Tab>("upload");
 	const [urlInput, setUrlInput] = useState("");
