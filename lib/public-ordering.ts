@@ -7,7 +7,7 @@ export type PublicTenant = {
 	logo?: string | null;
 	phone?: string | null;
 	address?: string | null;
-	openingHours?: unknown;
+	openingHours?: string | Record<string, unknown> | null;
 	aiGreeting?: string;
 	active?: boolean;
 };
