@@ -23,6 +23,7 @@ export type PublicMenuItem = {
 	variants?: { name?: string; options?: { name?: string; price?: number }[] }[];
 	addons?: { name?: string; price?: number }[];
 	photos?: { url?: string; alt?: string }[];
+	imageUrl?: string | null;
 };
 
 export type PublicOrderItem = {
