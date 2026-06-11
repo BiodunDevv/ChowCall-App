@@ -111,6 +111,8 @@ export default function TenantLandingPage() {
           <TenantHero
             restaurant={restaurant}
             restaurantName={restaurantName}
+            orderHref={orderHref}
+            callHref={callHref}
             menuHref={menuHref}
           />
 

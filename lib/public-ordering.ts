@@ -11,6 +11,8 @@ export type PublicTenant = {
 	aiGreeting?: string;
 	aiAgent?: { enabled?: boolean; instructions?: string };
 	coverImageUrl?: string | null;
+	heroImageLightUrl?: string | null;
+	heroImageDarkUrl?: string | null;
 	description?: string | null;
 	category?: string | null;
 	instagramUrl?: string | null;

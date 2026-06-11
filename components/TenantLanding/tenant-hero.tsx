@@ -1,9 +1,16 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { DecorIcon } from "@/components/decor-icon";
+import { FullWidthDivider } from "@/components/Landing/full-width-divider";
 import { ArrowRightIcon } from "lucide-react";
 import {
-  IconToolsKitchen2,
   IconCircleCheck,
   IconCircleX,
+  IconMessageCircle,
+  IconPhoneCall,
+  IconToolsKitchen2,
   IconTruck,
   IconShoppingBag,
 } from "@tabler/icons-react";
@@ -13,111 +20,107 @@ import { isOpenNow } from "@/lib/opening-hours";
 type TenantHeroProps = {
   restaurant: PublicTenant;
   restaurantName: string;
+  orderHref: string;
+  callHref: string;
   menuHref: string;
 };
 
-export function TenantHero({ restaurant, restaurantName, menuHref }: TenantHeroProps) {
+export function TenantHero({
+  restaurant,
+  restaurantName,
+  orderHref,
+  callHref,
+  menuHref,
+}: TenantHeroProps) {
   const open = isOpenNow(restaurant.openingHours);
-  const hasCover = Boolean(restaurant.coverImageUrl);
 
-  // Headline priority: heroHeadline from storefront settings > default
   const headline =
     restaurant.heroHeadline?.trim() ||
     `Order from ${restaurantName} with ChowCall AI.`;
 
+  const description = restaurant.description?.trim() ||
+    `Call or chat with our AI assistant to place your food order, confirm delivery details, pay securely, and send your order straight to the kitchen.`;
+
+  // Hero screen image: use tenant hero image first, then cover image.
+  const lightImg = restaurant.heroImageLightUrl || restaurant.coverImageUrl || null;
+  const darkImg = restaurant.heroImageDarkUrl || lightImg;
+  const hasScreenImg = Boolean(lightImg);
+
   return (
-    <section className="relative mx-auto w-full max-w-5xl">
-      {/* Ambient top gradient */}
-      <div
-        aria-hidden
-        className="absolute inset-0 isolate hidden overflow-hidden contain-strict lg:block"
-      >
-        <div className="absolute inset-0 -top-14 isolate -z-10 bg-[radial-gradient(35%_80%_at_49%_0%,--theme(--color-foreground/.08),transparent)] contain-strict" />
-      </div>
-
-      {/* Vertical faded borders */}
-      <div
-        aria-hidden
-        className="absolute inset-0 mx-auto hidden min-h-screen w-full max-w-5xl lg:block"
-      >
-        <div className="mask-y-from-80% mask-y-to-100% absolute inset-y-0 left-0 z-10 h-full w-px bg-foreground/15" />
-        <div className="mask-y-from-80% mask-y-to-100% absolute inset-y-0 right-0 z-10 h-full w-px bg-foreground/15" />
-      </div>
-
-      <div className="relative flex flex-col items-center justify-center gap-6 pt-24 pb-20 px-4 overflow-hidden rounded-xl">
-        {/* Cover image — full bleed behind content */}
-        {hasCover && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={restaurant.coverImageUrl!}
-            alt=""
-            aria-hidden
-            className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover opacity-25 dark:opacity-15"
-          />
-        )}
-
-        {/* Gradient overlay to keep text readable */}
-        {hasCover && (
-          <div
-            aria-hidden
-            className="absolute inset-0 z-0 bg-gradient-to-b from-background/60 via-background/40 to-background/80"
-          />
-        )}
-
-        {/* Inner faded border lines */}
+    <section>
+      {/* ── Upper hero: text + CTAs ──────────────────────────────────── */}
+      <div className="relative flex flex-col items-center justify-center gap-5 px-4 py-12 md:px-4 md:py-24 lg:py-28">
+        {/* Decorative radial blur + border lines */}
         <div
-          aria-hidden
-          className="absolute inset-0 z-10 size-full overflow-hidden"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-0 size-full overflow-hidden"
         >
+          <div
+            className={cn(
+              "absolute -inset-x-20 inset-y-0 z-0 rounded-full",
+              "bg-[radial-gradient(ellipse_at_center,--theme(--color-foreground/.1),transparent,transparent)]",
+              "blur-[50px]",
+            )}
+          />
           <div className="absolute inset-y-0 left-4 w-px bg-linear-to-b from-transparent via-border to-border md:left-8" />
           <div className="absolute inset-y-0 right-4 w-px bg-linear-to-b from-transparent via-border to-border md:right-8" />
           <div className="absolute inset-y-0 left-8 w-px bg-linear-to-b from-transparent via-border/50 to-border/50 md:left-12" />
           <div className="absolute inset-y-0 right-8 w-px bg-linear-to-b from-transparent via-border/50 to-border/50 md:right-12" />
         </div>
 
-        {/* Open/closed status pill */}
         <div
           className={cn(
-            "group mx-auto flex w-fit items-center gap-3 rounded-full border bg-card px-3 py-1 shadow",
+            "group relative z-10 mx-auto flex w-fit items-center gap-3 rounded-sm border bg-card p-1 shadow",
             "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards transition-all delay-500 duration-500 ease-out",
             !open && "border-destructive/30 bg-destructive/5",
           )}
         >
-          {open ? (
-            <IconCircleCheck className="size-3 text-emerald-500" />
-          ) : (
-            <IconCircleX className="size-3 text-destructive" />
-          )}
-          <span className={cn("text-xs", !open && "text-destructive")}>
-            {open ? "Open now" : "Closed"} · AI ordering for {restaurantName}
+          <div className={cn(
+            "rounded-xs border bg-card px-1.5 py-0.5 shadow-sm",
+            open ? "border-emerald-200 dark:border-emerald-800" : "border-destructive/30",
+          )}>
+            <p className={cn("font-mono text-xs", open ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+              {open ? "OPEN" : "CLOSED"}
+            </p>
+          </div>
+          <span className="text-xs">
+            {open ? "Taking orders now" : "Not taking orders right now"}
           </span>
-          {open && (
-            <>
-              <span className="block h-5 border-l" />
-              <ArrowRightIcon className="size-3 duration-150 ease-out group-hover:translate-x-1" />
-            </>
+          <span className="block h-5 border-l" />
+          {open ? (
+            <IconCircleCheck className="size-3 text-emerald-500 mr-1" />
+          ) : (
+            <IconCircleX className="size-3 text-destructive mr-1" />
           )}
         </div>
 
-        {/* Headline — driven by bannerText or default */}
         <h1
           className={cn(
-            "fade-in slide-in-from-bottom-10 animate-in text-balance fill-mode-backwards text-center text-4xl tracking-tight delay-100 duration-500 ease-out md:text-5xl lg:text-6xl",
-            "text-shadow-[0_0px_50px_theme(--color-foreground/.2)]",
+            "max-w-2xl text-balance text-center text-3xl text-foreground md:text-5xl",
+            "relative z-10",
+            "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-100 duration-500 ease-out",
           )}
         >
           {headline}
         </h1>
 
         {/* Description */}
-        <p className="fade-in slide-in-from-bottom-10 mx-auto max-w-2xl animate-in fill-mode-backwards px-4 text-center text-sm tracking-wider text-foreground/80 delay-200 duration-500 ease-out sm:text-lg">
-          {restaurant.description
-            ? restaurant.description
-            : `Call or chat with our AI assistant to place your food order, confirm delivery details, pay securely, and send your order straight to the kitchen.`}
+        <p
+          className={cn(
+            "text-center text-muted-foreground text-sm tracking-wider sm:text-lg max-w-2xl",
+            "relative z-10",
+            "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-200 duration-500 ease-out",
+          )}
+        >
+          {description}
         </p>
 
         {/* Badges */}
-        <div className="fade-in slide-in-from-bottom-10 flex animate-in flex-wrap items-center justify-center gap-2 fill-mode-backwards delay-250 duration-500 ease-out">
+        <div className={cn(
+          "flex flex-wrap items-center justify-center gap-2",
+          "relative z-10",
+          "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-[250ms] duration-500 ease-out",
+        )}>
           {restaurant.category && (
             <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground">
               <IconToolsKitchen2 className="size-3" />
@@ -143,14 +146,77 @@ export function TenantHero({ restaurant, restaurantName, menuHref }: TenantHeroP
           )}
         </div>
 
-        {/* View menu link — always visible */}
+        {/* CTAs */}
+        <div className={cn(
+          "flex w-fit flex-row flex-wrap items-center justify-center gap-3 pt-2",
+          "relative z-10",
+          "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-300 duration-500 ease-out",
+        )}>
+          {restaurant.phone && (
+            <Button asChild variant="outline">
+              <a href={callHref}>
+                <IconPhoneCall data-icon="inline-start" />
+                Call to Order
+              </a>
+            </Button>
+          )}
+          <Button asChild>
+            <a href={orderHref}>
+              <IconMessageCircle data-icon="inline-start" />
+              Order with AI
+              <ArrowRightIcon data-icon="inline-end" />
+            </a>
+          </Button>
+        </div>
+
+        {/* View menu */}
         <a
           href={menuHref}
-          className="fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards text-sm text-muted-foreground underline underline-offset-4 transition-colors delay-400 duration-500 hover:text-foreground ease-out"
+          className={cn(
+            "text-sm text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground",
+            "relative z-10",
+            "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-[400ms] duration-500 ease-out",
+          )}
         >
           View full menu →
         </a>
       </div>
+
+      {/* ── Lower hero: screen image ─────────────────────────────────── */}
+      {hasScreenImg && (
+        <div className="relative mx-auto w-full max-w-5xl">
+          <DecorIcon className="size-4" position="top-left" />
+          <DecorIcon className="size-4" position="top-right" />
+          <DecorIcon className="size-4" position="bottom-left" />
+          <DecorIcon className="size-4" position="bottom-right" />
+
+          <FullWidthDivider className="-top-px" />
+          <div className="overflow-hidden *:pointer-events-none *:aspect-video *:w-full *:select-none">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={`${restaurantName} preview`}
+              className={cn(
+                "object-cover",
+                darkImg !== lightImg && "dark:hidden",
+              )}
+              src={lightImg!}
+              width="auto"
+              height="auto"
+            />
+            {darkImg && darkImg !== lightImg && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt={`${restaurantName} preview`}
+                className="hidden object-cover dark:block"
+                src={darkImg}
+                width="auto"
+                height="auto"
+              />
+            )}
+          </div>
+          <FullWidthDivider className="-bottom-px" />
+        </div>
+      )}
     </section>
   );
 }

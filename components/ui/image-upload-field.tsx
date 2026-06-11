@@ -33,6 +33,8 @@ export type ImageUploadFieldProps = {
 	value?: string;
 	/** Called whenever the URL changes (upload complete or URL pasted) */
 	onChange: (url: string) => void;
+	/** Called when user clicks the preview image — use to open a lightbox */
+	onPreviewClick?: (url: string) => void;
 	/** aspect-video (default) | aspect-square */
 	aspect?: "video" | "square";
 	/** object-cover (default) | object-contain */
@@ -45,6 +47,7 @@ export type ImageUploadFieldProps = {
 export function ImageUploadField({
 	value = "",
 	onChange,
+	onPreviewClick,
 	aspect = "video",
 	fit = "cover",
 	placeholder = "Click to upload or drag & drop",
@@ -167,10 +170,10 @@ export function ImageUploadField({
 					className={cn(
 						"w-full",
 						aspect === "square" ? "aspect-square" : "aspect-video",
-						fit === "contain"
-							? "object-contain"
-							: "object-cover",
+						fit === "contain" ? "object-contain" : "object-cover",
+						onPreviewClick && "cursor-zoom-in",
 					)}
+					onClick={() => onPreviewClick?.(preview)}
 					onError={() => {
 						setPreview("");
 						setUploadState("error");

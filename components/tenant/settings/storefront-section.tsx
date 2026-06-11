@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
+import { ImagePreviewDialog } from "@/components/ui/image-preview-dialog";
 import { useAuthStore } from "@/stores/auth-store";
 import { getUserTenantSlug } from "@/lib/auth";
 import {
@@ -32,7 +33,8 @@ import {
 
 type StorefrontConfig = {
   logoUrl: string;
-  coverImageUrl: string;
+  heroImageLightUrl: string;
+  heroImageDarkUrl: string;
   heroHeadline: string;
   description: string;
   category: string;
@@ -52,7 +54,8 @@ type StorefrontConfig = {
 
 const DEFAULTS: StorefrontConfig = {
   logoUrl: "",
-  coverImageUrl: "",
+  heroImageLightUrl: "",
+  heroImageDarkUrl: "",
   heroHeadline: "",
   description: "",
   category: "",
@@ -78,6 +81,8 @@ export function StorefrontSection() {
   const [form, setForm] = useState<StorefrontConfig>(DEFAULTS);
   const [saved, setSaved] = useState(false);
   const seeded = useRef(false);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const openPreview = useCallback((url: string) => setPreviewSrc(url), []);
 
   const { isLoading, data: storefrontData } = useQuery({
     queryKey: ["storefront-config"],
@@ -132,7 +137,14 @@ export function StorefrontSection() {
   }
 
   return (
-    <div className="divide-y rounded-2xl border bg-card overflow-hidden">
+    <>
+      <ImagePreviewDialog
+        open={!!previewSrc}
+        onOpenChange={(open) => { if (!open) setPreviewSrc(null); }}
+        src={previewSrc}
+        alt="Image preview"
+      />
+      <div className="divide-y rounded-2xl border bg-card overflow-hidden">
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -186,39 +198,63 @@ export function StorefrontSection() {
       <Section
         icon={IconToolsKitchen2}
         title="Branding"
-        description="Your logo and cover image — used in the page header and hero section."
+        description="Your restaurant logo — shown in the page header, and footer."
+      >
+        <div className="max-w-xs space-y-2">
+          <Label className="text-xs font-medium flex items-center gap-1.5">
+            <IconToolsKitchen2 className="size-3.5 text-muted-foreground" />
+            Restaurant logo
+          </Label>
+          <ImageUploadField
+            value={form.logoUrl}
+            onChange={(url) => set("logoUrl", url)}
+            onPreviewClick={openPreview}
+            aspect="square"
+            placeholder="Upload logo"
+            hint="Square image, PNG or JPG"
+          />
+        </div>
+      </Section>
+
+      {/* ── Hero Screen Images ──────────────────────────────────────────── */}
+      <Section
+        icon={IconPhoto}
+        title="Hero Screen Preview"
+        description="Show a screenshot or graphic below your hero text — like a menu preview or app screenshot. Upload one for light mode and one for dark mode (or use the same for both)."
       >
         <div className="grid gap-6 sm:grid-cols-2">
-          {/* Logo */}
-          <div className="space-y-2">
-            <Label className="text-xs font-medium flex items-center gap-1.5">
-              <IconToolsKitchen2 className="size-3.5 text-muted-foreground" />
-              Restaurant logo
-            </Label>
-            <ImageUploadField
-              value={form.logoUrl}
-              onChange={(url) => set("logoUrl", url)}
-              aspect="square"
-              placeholder="Upload logo"
-              hint="Square image, PNG or JPG"
-            />
-          </div>
-
-          {/* Cover */}
           <div className="space-y-2">
             <Label className="text-xs font-medium flex items-center gap-1.5">
               <IconPhoto className="size-3.5 text-muted-foreground" />
-              Hero cover image
+              Light mode image
             </Label>
             <ImageUploadField
-              value={form.coverImageUrl}
-              onChange={(url) => set("coverImageUrl", url)}
+              value={form.heroImageLightUrl}
+              onChange={(url) => set("heroImageLightUrl", url)}
+              onPreviewClick={openPreview}
               aspect="video"
-              placeholder="Upload cover image"
-              hint="Landscape image, shown in hero bg"
+              placeholder="Upload light mode image"
+              hint="Shown on light theme — wide/landscape"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium flex items-center gap-1.5">
+              <IconPhoto className="size-3.5 text-muted-foreground" />
+              Dark mode image
+            </Label>
+            <ImageUploadField
+              value={form.heroImageDarkUrl}
+              onChange={(url) => set("heroImageDarkUrl", url)}
+              onPreviewClick={openPreview}
+              aspect="video"
+              placeholder="Upload dark mode image"
+              hint="Shown on dark theme — leave blank to reuse light image"
             />
           </div>
         </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          If no dark image is uploaded, the light image is used for both modes.
+        </p>
       </Section>
 
       {/* ── Restaurant Identity ─────────────────────────────────────────── */}
@@ -378,7 +414,8 @@ export function StorefrontSection() {
           {save.isPending ? "Saving…" : saved ? "Saved!" : "Save changes"}
         </Button>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
