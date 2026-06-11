@@ -44,6 +44,8 @@ const publicApiPaths = new Set([
   "/v1/auth/forgot-password",
   "/v1/auth/reset-password",
   "/v1/auth/refresh",
+  "/v1/plans",
+  "/v1/subscriptions/plans",
   "/v1/health",
   "/health",
 ]);

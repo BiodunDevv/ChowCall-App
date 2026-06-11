@@ -92,7 +92,11 @@ export const fallbackPlans: Plan[] = [
 ];
 
 export async function fetchPlans() {
-	return api<{ data: Plan[] }>("/v1/plans");
+	try {
+		return await api<{ data: Plan[] }>("/v1/plans");
+	} catch {
+		return { data: fallbackPlans };
+	}
 }
 
 export function formatPlanPrice(plan: Plan) {
