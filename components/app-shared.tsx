@@ -8,6 +8,7 @@ import {
   IconPackage,
   IconReceipt,
   IconTruck,
+  IconWorld,
   IconCurrencyDollar,
   IconCreditCard,
   IconRobot,
@@ -117,6 +118,11 @@ export const tenantNavGroups: SidebarNavGroup[] = [
         title: "AI Agent",
         path: "/settings/ai-agent",
         icon: <IconRobot />,
+      },
+      {
+        title: "Public AI Page",
+        path: "/settings/storefront",
+        icon: <IconWorld />,
       },
       {
         title: "Phone Routing",
@@ -359,8 +365,8 @@ export const navGroups: SidebarNavGroup[] = tenantNavGroups;
 export const navLinks: SidebarNavItem[] = [
   ...navGroups.flatMap((group) =>
     group.items.flatMap((item) =>
-      item.subItems?.length ? [item, ...item.subItems] : [item]
-    )
+      item.subItems?.length ? [item, ...item.subItems] : [item],
+    ),
   ),
   ...footerNavLinks,
 ];

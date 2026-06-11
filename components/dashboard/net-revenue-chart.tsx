@@ -14,29 +14,20 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Delta, DeltaIcon, DeltaValue } from "@/components/dashboard/delta";
 import { DashboardCard } from "@/components/dashboard/dashboard-card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api/client";
 
-/** Demo: last 7 days. */
-const salesDaily7 = [
-	{ day: "Mon", sales: 3200 },
-	{ day: "Tue", sales: 3001 },
-	{ day: "Wed", sales: 3780 },
-	{ day: "Thu", sales: 4100 },
-	{ day: "Fri", sales: 4520 },
-	{ day: "Sat", sales: 4004 },
-	{ day: "Sun", sales: 5340 },
-] as const;
-
-const chartRows = salesDaily7.map((row) => ({ ...row }));
-
-const firstDay = salesDaily7[0].sales;
-const lastDay = salesDaily7.at(-1)?.sales ?? firstDay;
-const growthPct = (((lastDay - firstDay) / firstDay) * 100).toFixed(1);
+type DashboardData = {
+	data: {
+		revenueChart: Array<{ date: string; revenue: number; orders: number }>;
+	};
+};
 
 const chartConfig = {
-	sales: {
-		label: "Sales",
+	revenue: {
+		label: "Revenue (₦)",
 		color: "var(--chart-2)",
 	},
 } satisfies ChartConfig;
@@ -53,21 +44,14 @@ function CustomGradientBar(
 		y = 0,
 		width = 0,
 		height = 0,
-		dataKey = "sales",
+		dataKey = "revenue",
 		index = 0,
 	} = props;
 	const gid = `gradient-bar-${String(dataKey)}-${index}`;
 
 	return (
 		<>
-			<rect
-				fill={`url(#${gid})`}
-				height={height}
-				stroke="none"
-				width={width}
-				x={x}
-				y={y}
-			/>
+			<rect fill={`url(#${gid})`} height={height} stroke="none" width={width} x={x} y={y} />
 			<rect fill={fill} height={2} stroke="none" width={width} x={x} y={y} />
 			<defs>
 				<linearGradient id={gid} x1="0" x2="0" y1="0" y2="1">
@@ -79,44 +63,45 @@ function CustomGradientBar(
 	);
 }
 
-export function NetRevenueChart() {
+export function NetRevenueChart({ apiPath }: { apiPath: string }) {
+	const { data, isLoading } = useQuery({
+		queryKey: ["dashboard", apiPath, "revenue"],
+		queryFn: () => api<DashboardData>(apiPath),
+		staleTime: 60_000,
+	});
+
+	const chartRows = data?.data?.revenueChart ?? [];
+
 	return (
 		<DashboardCard className="gap-0 sm:col-span-2">
 			<CardHeader className="gap-2">
 				<div className="flex flex-wrap items-center gap-2">
-					<CardTitle>Net revenue</CardTitle>
-					<Delta value={Number(growthPct)} variant="badge">
-						<DeltaIcon variant="trend" />
-						<DeltaValue />
-					</Delta>
+					<CardTitle>Net Revenue</CardTitle>
 				</div>
-				<CardDescription>Daily net sales, last 7 days.</CardDescription>
+				<CardDescription>Daily revenue (₦), last 7 days.</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<ChartContainer
-					className="aspect-auto h-60 w-full md:h-80"
-					config={chartConfig}
-				>
-					<BarChart accessibilityLayer data={chartRows}>
-						<XAxis
-							axisLine={false}
-							dataKey="day"
-							interval={0}
-							tickFormatter={(value) => String(value)}
-							tickLine={false}
-							tickMargin={10}
-						/>
-						<ChartTooltip
-							content={<ChartTooltipContent hideLabel />}
-							cursor={false}
-						/>
-						<Bar
-							dataKey="sales"
-							fill="var(--color-sales)"
-							shape={<CustomGradientBar />}
-						/>
-					</BarChart>
-				</ChartContainer>
+				{isLoading ? (
+					<Skeleton className="aspect-auto h-60 w-full md:h-80" />
+				) : (
+					<ChartContainer className="aspect-auto h-60 w-full md:h-80" config={chartConfig}>
+						<BarChart accessibilityLayer data={chartRows}>
+							<XAxis
+								axisLine={false}
+								dataKey="date"
+								interval={0}
+								tickLine={false}
+								tickMargin={10}
+							/>
+							<ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={false} />
+							<Bar
+								dataKey="revenue"
+								fill="var(--color-revenue)"
+								shape={<CustomGradientBar />}
+							/>
+						</BarChart>
+					</ChartContainer>
+				)}
 			</CardContent>
 		</DashboardCard>
 	);

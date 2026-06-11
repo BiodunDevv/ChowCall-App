@@ -9,6 +9,18 @@ export type PublicTenant = {
 	address?: string | null;
 	openingHours?: string | Record<string, unknown> | null;
 	aiGreeting?: string;
+	aiAgent?: { enabled?: boolean; instructions?: string };
+	coverImageUrl?: string | null;
+	description?: string | null;
+	category?: string | null;
+	instagramUrl?: string | null;
+	whatsappNumber?: string | null;
+	bannerText?: string | null;
+	bannerEnabled?: boolean | null;
+	showPopularItems?: boolean | null;
+	pickupEnabled?: boolean | null;
+	deliveryEnabled?: boolean | null;
+	estimatedPrepTime?: number | null;
 	active?: boolean;
 };
 

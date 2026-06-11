@@ -24,7 +24,7 @@ export function SuperAdminDashboard() {
 				</h1>
 			</div>
 			<div className="min-w-0 overflow-hidden">
-				<Dashboard />
+				<Dashboard apiPath="/v1/admin/dashboard" scope="platform" />
 			</div>
 		</AppShell>
 	);

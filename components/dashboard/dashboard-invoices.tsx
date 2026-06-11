@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
 import {
 	CardContent,
 	CardDescription,
@@ -16,82 +16,105 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardCard } from "@/components/dashboard/dashboard-card";
-import { IconArrowRight } from "@tabler/icons-react";
+import { api } from "@/lib/api/client";
+import { formatMoney } from "@/lib/public-ordering";
 
-const invoices = [
-	{
-		id: "1045",
-		customer: "Northwind Labs",
-		amount: "$2,400.00",
-		status: "Paid",
-	},
-	{
-		id: "1044",
-		customer: "Blue River Co.",
-		amount: "$890.00",
-		status: "Pending",
-	},
-	{
-		id: "1043",
-		customer: "Oak Street Studio",
-		amount: "$5,120.00",
-		status: "Paid",
-	},
-	{
-		id: "1042",
-		customer: "Harbor Freight LLC",
-		amount: "$310.50",
-		status: "Overdue",
-	},
-] as const;
+type RecentOrder = {
+	id: string;
+	orderNumber?: string;
+	status?: string;
+	source?: string;
+	fulfilmentType?: string;
+	customerName?: string;
+	totalPayable?: number;
+	createdAt?: string;
+};
 
-export function DashboardInvoices() {
+type DashboardData = {
+	data: {
+		recentOrders: RecentOrder[];
+	};
+};
+
+function labelStatus(status?: string) {
+	return (status ?? "pending").replace(/_/g, " ").toLowerCase();
+}
+
+export function DashboardInvoices({
+	apiPath,
+	scope,
+}: {
+	apiPath: string;
+	scope: "tenant" | "platform";
+}) {
+	const { data, isLoading } = useQuery({
+		queryKey: ["dashboard", apiPath, "recent-orders"],
+		queryFn: () => api<DashboardData>(apiPath),
+		staleTime: 60_000,
+	});
+
+	const orders = data?.data?.recentOrders ?? [];
+
 	return (
 		<DashboardCard className="relative gap-0 sm:col-span-2">
 			<CardHeader className="border-b">
-				<CardTitle className="text-base">Recent invoices</CardTitle>
-				<CardDescription>Open amounts and payment status.</CardDescription>
+				<CardTitle className="text-base">Recent orders</CardTitle>
+				<CardDescription>
+					{scope === "platform"
+						? "Latest orders across ChowCall restaurants."
+						: "Latest orders for this restaurant."}
+				</CardDescription>
 			</CardHeader>
-			<CardContent className="mask-b-from-50% mask-b-to-100% px-0 overflow-x-auto">
-				<Table>
-					<TableCaption className="sr-only">
-						Recent invoices with customer, amount, and status.
-					</TableCaption>
-					<TableHeader>
-						<TableRow>
-							<TableHead className="ps-4 sm:ps-6">Customer</TableHead>
-							<TableHead>Invoice</TableHead>
-							<TableHead className="pe-4 sm:pe-6 text-right tabular-nums">
-								Amount
-							</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{invoices.map((inv) => (
-							<TableRow className="h-12" key={inv.id}>
-								<TableCell className="max-w-30 truncate ps-4 sm:ps-6 font-medium text-sm">
-									{inv.customer}
-								</TableCell>
-								<TableCell className="text-muted-foreground tabular-nums text-sm">
-									#{inv.id}
-								</TableCell>
-								<TableCell className="pe-4 sm:pe-6 text-right tabular-nums text-sm">
-									{inv.amount}
-								</TableCell>
-							</TableRow>
+			<CardContent className="overflow-x-auto px-0">
+				{isLoading ? (
+					<div className="space-y-2 p-4">
+						{Array.from({ length: 5 }).map((_, index) => (
+							<Skeleton key={index} className="h-10 w-full" />
 						))}
-					</TableBody>
-				</Table>
+					</div>
+				) : orders.length === 0 ? (
+					<p className="py-10 text-center text-sm text-muted-foreground">
+						No orders yet.
+					</p>
+				) : (
+					<Table>
+						<TableCaption className="sr-only">
+							Recent orders with customer, status, channel, and total.
+						</TableCaption>
+						<TableHeader>
+							<TableRow>
+								<TableHead className="ps-4 sm:ps-6">Customer</TableHead>
+								<TableHead>Status</TableHead>
+								<TableHead>Channel</TableHead>
+								<TableHead className="pe-4 text-right sm:pe-6">Total</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{orders.map((order) => (
+								<TableRow className="h-12" key={order.id}>
+									<TableCell className="max-w-36 truncate ps-4 text-sm font-medium sm:ps-6">
+										{order.customerName || order.orderNumber || "Customer"}
+									</TableCell>
+									<TableCell>
+										<Badge variant="secondary" className="capitalize">
+											{labelStatus(order.status)}
+										</Badge>
+									</TableCell>
+									<TableCell className="text-sm capitalize text-muted-foreground">
+										{order.source ?? "web"}
+									</TableCell>
+									<TableCell className="pe-4 text-right text-sm tabular-nums sm:pe-6">
+										{formatMoney(order.totalPayable ?? 0)}
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				)}
 			</CardContent>
-			<div className="mask-t-from-30% absolute inset-x-0 bottom-0 flex h-1/5 items-center justify-center bg-background">
-				<Button asChild className="relative" variant="ghost">
-					<a href="/#">
-						View All
-						<IconArrowRight aria-hidden="true" />
-					</a>
-				</Button>
-			</div>
 		</DashboardCard>
 	);
 }

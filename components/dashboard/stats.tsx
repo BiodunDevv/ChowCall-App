@@ -1,42 +1,82 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import {
 	CardContent,
 	CardFooter,
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { Delta, DeltaIcon, DeltaValue } from "@/components/dashboard/delta";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardCard } from "@/components/dashboard/dashboard-card";
+import { api } from "@/lib/api/client";
 
-type Stat = {
-	label: string;
-	value: string;
-	delta: number;
+type DashboardData = {
+	data: {
+		todayOrders: number;
+		todayRevenue: number;
+		weekOrders: number;
+		monthRevenue: number;
+		tenantCount?: number;
+		activeTenantCount?: number;
+	};
 };
 
-const stats: Stat[] = [
-	{
-		label: "Active users",
-		value: "847",
-		delta: 3.1,
-	},
-	{
-		label: "Revenue",
-		value: "$18,290",
-		delta: 12.4,
-	},
-	{
-		label: "Conversion Rate",
-		value: "3.28%",
-		delta: -0.4,
-	},
-	{
-		label: "New signups",
-		value: "142",
-		delta: 8.7,
-	},
-] as const;
+function fmt(n: number) {
+	return `₦${n.toLocaleString("en-NG")}`;
+}
 
-export function DashboardStats() {
+type DashboardStatsProps = {
+	apiPath: string;
+	scope: "tenant" | "platform";
+};
+
+export function DashboardStats({ apiPath, scope }: DashboardStatsProps) {
+	const { data, isLoading } = useQuery({
+		queryKey: ["dashboard", apiPath],
+		queryFn: () => api<DashboardData>(apiPath),
+		staleTime: 60_000,
+	});
+
+	const stats =
+		scope === "platform"
+			? [
+					{
+						label: "Active Restaurants",
+						value: isLoading ? null : String(data?.data?.activeTenantCount ?? 0),
+					},
+					{
+						label: "Total Restaurants",
+						value: isLoading ? null : String(data?.data?.tenantCount ?? 0),
+					},
+					{
+						label: "Today's Revenue",
+						value: isLoading ? null : fmt(data?.data?.todayRevenue ?? 0),
+					},
+					{
+						label: "Monthly Revenue",
+						value: isLoading ? null : fmt(data?.data?.monthRevenue ?? 0),
+					},
+				]
+			: [
+					{
+						label: "Today's Orders",
+						value: isLoading ? null : String(data?.data?.todayOrders ?? 0),
+					},
+					{
+						label: "Today's Revenue",
+						value: isLoading ? null : fmt(data?.data?.todayRevenue ?? 0),
+					},
+					{
+						label: "This Week's Orders",
+						value: isLoading ? null : String(data?.data?.weekOrders ?? 0),
+					},
+					{
+						label: "Monthly Revenue",
+						value: isLoading ? null : fmt(data?.data?.monthRevenue ?? 0),
+					},
+				];
+
 	return (
 		<>
 			{stats.map((s) => (
@@ -47,14 +87,14 @@ export function DashboardStats() {
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="flex flex-row items-center gap-2">
-						<p className="font-semibold text-2xl tabular-nums">{s.value}</p>
+						{s.value === null ? (
+							<Skeleton className="h-8 w-24" />
+						) : (
+							<p className="font-semibold text-2xl tabular-nums">{s.value}</p>
+						)}
 					</CardContent>
 					<CardFooter className="gap-1 rounded-none bg-background text-xs">
-						<Delta value={s.delta}>
-							<DeltaIcon />
-							<DeltaValue />
-						</Delta>
-						<span className="text-muted-foreground">vs last week</span>{" "}
+						<span className="text-muted-foreground">Live data</span>
 					</CardFooter>
 				</DashboardCard>
 			))}

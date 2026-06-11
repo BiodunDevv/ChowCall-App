@@ -12,6 +12,7 @@ import {
   IconPhone,
   IconClock,
   IconRobot,
+  IconWorld,
 } from "@tabler/icons-react";
 
 interface TenantSettingsShellProps {
@@ -76,6 +77,11 @@ export function TenantSettingsShell({ tenantSlug, children }: TenantSettingsShel
     {
       label: "Intelligence",
       items: [
+        {
+          label: "Public AI Page",
+          href: `${base}/storefront`,
+          icon: <IconWorld className="size-4" />,
+        },
         {
           label: "AI Agent",
           href: `${base}/ai-agent`,

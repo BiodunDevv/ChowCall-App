@@ -14,14 +14,14 @@ import { IconRobot, IconSparkles } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 
 export function AiAgentSection() {
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState(true);
   const [instructions, setInstructions] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     api<{ data?: { enabled?: boolean; instructions?: string } }>("/v1/tenants/current/ai-agent")
       .then((res) => {
-        if (res.data?.enabled != null) setEnabled(res.data.enabled);
+        setEnabled(res.data?.enabled !== false);
         if (res.data?.instructions) setInstructions(res.data.instructions);
       })
       .catch(() => {});
@@ -62,7 +62,7 @@ export function AiAgentSection() {
           <div className="space-y-0.5">
             <p className="text-sm font-medium">Enable AI call agent</p>
             <p className="text-xs text-muted-foreground">
-              The AI will answer calls, understand orders, and log them automatically
+              The AI answers calls and chat orders, checks menu context, and prepares structured orders for payment
             </p>
           </div>
           <Switch checked={enabled} onCheckedChange={setEnabled} />
@@ -70,15 +70,15 @@ export function AiAgentSection() {
 
         {enabled && (
           <div className="space-y-1.5">
-            <Label>Custom instructions — optional</Label>
+            <Label>Greeting, upsells, and house rules</Label>
             <Textarea
               rows={4}
-              placeholder="Tell the AI how to greet customers, what to upsell, or any house rules…"
+              placeholder="Example: greet callers warmly, suggest zobo with rice meals, confirm spice level, and never accept unpaid delivery orders."
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              These instructions shape how the agent behaves on calls
+              These instructions are included in call and chat context for this restaurant.
             </p>
           </div>
         )}
