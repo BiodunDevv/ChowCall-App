@@ -2,6 +2,21 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const ignoredSubdomains = new Set(["www", "app"]);
 
+function getConfiguredRootHostname() {
+	const configuredUrl =
+		process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_PROJECT_PRODUCTION_URL;
+	if (!configuredUrl) return null;
+
+	try {
+		const url = configuredUrl.startsWith("http")
+			? new URL(configuredUrl)
+			: new URL(`https://${configuredUrl}`);
+		return url.hostname;
+	} catch {
+		return null;
+	}
+}
+
 // Returns true for bare IP addresses (e.g. 172.20.10.4) — never tenant hosts
 function isIpAddress(hostname: string) {
 	return /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
@@ -9,6 +24,9 @@ function isIpAddress(hostname: string) {
 
 function getTenantFromHost(host: string) {
 	const hostname = host.split(":")[0] ?? "";
+	const rootHostname = getConfiguredRootHostname();
+
+	if (rootHostname && hostname === rootHostname) return null;
 
 	// IP addresses have no subdomain concept
 	if (isIpAddress(hostname)) return null;

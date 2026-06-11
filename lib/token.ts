@@ -5,9 +5,24 @@
 const COOKIE_NAME = "cc_access";
 const MAX_AGE = 15 * 60; // 15 minutes — matches backend JWT TTL
 
+function getConfiguredRootUrl(): URL | null {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!configuredUrl) return null;
+
+  try {
+    return new URL(configuredUrl);
+  } catch {
+    return null;
+  }
+}
+
 function getRootDomain(): string {
   if (typeof window === "undefined") return "localhost";
   const hostname = window.location.hostname;
+  const configuredRoot = getConfiguredRootUrl();
+  if (configuredRoot && hostname.endsWith(configuredRoot.hostname)) {
+    return configuredRoot.hostname;
+  }
   // IP address — can't set wildcard domain cookies on IPs, fall back to exact host
   if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) return hostname;
   if (hostname === "localhost" || hostname.endsWith(".localhost")) return "localhost";
@@ -69,6 +84,10 @@ export function getRootOrigin(): string {
     return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   }
   const { protocol, hostname, port } = window.location;
+  const configuredRoot = getConfiguredRootUrl();
+  if (configuredRoot && hostname.endsWith(configuredRoot.hostname)) {
+    return configuredRoot.origin;
+  }
   const portSuffix = port ? `:${port}` : "";
 
   // IP address — no subdomain, return as-is

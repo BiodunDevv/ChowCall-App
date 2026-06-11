@@ -206,8 +206,9 @@ export const getTenantScopedPath = (tenantSlug: string, path: string) => {
 		return `${protocol}//${normalizedSlug}.localhost${port ? `:${port}` : ""}${normalizedPath}`;
 	}
 
-	const baseHost = host.replace(/^www\./, "").replace(/^app\./, "");
-	return `${protocol}//${normalizedSlug}.${baseHost}${normalizedPath}`;
+	const rootUrl = new URL(getRootOrigin());
+	const baseHost = rootUrl.host.replace(/^www\./, "").replace(/^app\./, "");
+	return `${rootUrl.protocol}//${normalizedSlug}.${baseHost}${normalizedPath}`;
 };
 
 export const slugifyTenant = (value: string) =>
@@ -243,5 +244,6 @@ export const getTenantUrlPreview = (slug: string, host?: string) => {
 		return `${normalizedSlug}.localhost${port ? `:${port}` : ""}`;
 	}
 
-	return `${normalizedSlug}.${fallbackHost.replace(/^www\./, "")}`;
+	const configuredRoot = new URL(getRootOrigin());
+	return `${normalizedSlug}.${configuredRoot.host.replace(/^www\./, "").replace(/^app\./, "")}`;
 };
