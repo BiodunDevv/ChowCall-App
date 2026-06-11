@@ -197,18 +197,20 @@ export const getTenantScopedPath = (tenantSlug: string, path: string) => {
 	const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
 	if (!normalizedSlug) return normalizedPath;
-	if (typeof window === "undefined") return `/${normalizedSlug}${normalizedPath}`;
-
-	const { protocol, host } = window.location;
-	const [hostname, port] = host.split(":");
-
-	if (hostname === "localhost" || hostname?.endsWith(".localhost")) {
-		return `${protocol}//${normalizedSlug}.localhost${port ? `:${port}` : ""}${normalizedPath}`;
-	}
-
 	const rootUrl = new URL(getRootOrigin());
-	const baseHost = rootUrl.host.replace(/^www\./, "").replace(/^app\./, "");
-	return `${rootUrl.protocol}//${normalizedSlug}.${baseHost}${normalizedPath}`;
+	return `${rootUrl.origin}/${normalizedSlug}${normalizedPath}`;
+};
+
+export const getPublicTenantPath = (
+	tenantSlug: string,
+	page: "landing" | "menu" | "order" = "landing",
+) => {
+	const normalizedSlug = slugifyTenant(tenantSlug);
+	if (!normalizedSlug) return getRootOrigin();
+	const root = getRootOrigin();
+	if (page === "menu") return `${root}/menu/${normalizedSlug}`;
+	if (page === "order") return `${root}/order/${normalizedSlug}`;
+	return `${root}/${normalizedSlug}`;
 };
 
 export const slugifyTenant = (value: string) =>
@@ -222,6 +224,9 @@ export const slugifyTenant = (value: string) =>
 
 export const getTenantSlugFromHostname = (hostname: string) => {
 	const normalized = hostname.split(":")[0] ?? "";
+	const rootHost =
+		typeof window !== "undefined" ? new URL(getRootOrigin()).hostname : "";
+	if (normalized === rootHost) return "";
 	const parts = normalized.split(".");
 
 	if (
@@ -237,13 +242,7 @@ export const getTenantSlugFromHostname = (hostname: string) => {
 export const getTenantUrlPreview = (slug: string, host?: string) => {
 	const normalizedSlug = slugifyTenant(slug);
 	const fallbackHost = host || "localhost:3000";
-	const [hostname, port] = fallbackHost.split(":");
 
 	if (!normalizedSlug) return fallbackHost;
-	if (hostname === "localhost" || hostname?.endsWith(".localhost")) {
-		return `${normalizedSlug}.localhost${port ? `:${port}` : ""}`;
-	}
-
-	const configuredRoot = new URL(getRootOrigin());
-	return `${normalizedSlug}.${configuredRoot.host.replace(/^www\./, "").replace(/^app\./, "")}`;
+	return `${getRootOrigin().replace(/^https?:\/\//, "")}/${normalizedSlug}`;
 };

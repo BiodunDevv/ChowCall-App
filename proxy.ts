@@ -74,17 +74,21 @@ export function proxy(request: NextRequest) {
 	if (
 		pathname.startsWith("/_next") ||
 		pathname.startsWith("/api") ||
-		pathname.startsWith("/auth") ||
 		pathname.includes(".")
 	) {
 		return NextResponse.next();
 	}
 
 	const url = request.nextUrl.clone();
-	url.pathname = `/${tenant}${pathname === "/" ? "" : pathname}`;
+	const rootHostname = getConfiguredRootHostname();
+	if (rootHostname) url.hostname = rootHostname;
+	if (pathname === "/" || pathname === "") url.pathname = `/${tenant}`;
+	else if (pathname === "/menu") url.pathname = `/menu/${tenant}`;
+	else if (pathname === "/order") url.pathname = `/order/${tenant}`;
+	else url.pathname = `/${tenant}${pathname}`;
 	url.search = search;
 
-	return NextResponse.rewrite(url);
+	return NextResponse.redirect(url);
 }
 
 export const config = {

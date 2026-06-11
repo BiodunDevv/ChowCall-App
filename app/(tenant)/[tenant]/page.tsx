@@ -1,60 +1,42 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import {
+	IconMessageCircle,
+	IconPhoneCall,
+	IconToolsKitchen2,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { FloatingPaths } from "@/components/Auth/floating-paths";
 import { LogoLoadingScreen } from "@/components/shared/logo-loading-screen";
-import { useAuthStore } from "@/stores/auth-store";
-import { getPostAuthPath, getTenantScopedPath, isSuperAdmin } from "@/lib/auth";
+import { getPublicTenantPath } from "@/lib/auth";
 import { getRootOrigin } from "@/lib/token";
-import {
-	IconPhone,
-	IconArrowRight,
-	IconLock,
-	IconLayoutDashboard,
-	IconAlertTriangle,
-	IconArrowUpRight,
-} from "@tabler/icons-react";
+import { publicOrderingApi } from "@/lib/public-ordering";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-type TenantInfo = {
-	_id: string;
-	name: string;
-	slug: string;
-	logo?: string;
-	subscriptionStatus: string;
-};
+function titleFromSlug(slug: string) {
+	return slug
+		.split("-")
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
+}
 
 export default function TenantLandingPage() {
 	const params = useParams<{ tenant: string }>();
 	const tenantSlug = params?.tenant ?? "";
-
-	const [tenantData, setTenantData] = useState<TenantInfo | null | undefined>(undefined); // undefined = loading
-	const user = useAuthStore((state) => state.user);
 	const rootOrigin = getRootOrigin();
-	const rootSignin = `${rootOrigin}/auth/signin`;
 
-	useEffect(() => {
-		fetch(`${API_URL}/v1/tenants/by-slug/${tenantSlug}`, { cache: "no-store" })
-			.then((r) => (r.ok ? r.json() : null))
-			.then((json) => setTenantData(json?.data ?? null))
-			.catch(() => setTenantData(null));
-	}, [tenantSlug]);
+	const tenant = useQuery({
+		queryKey: ["public-tenant", tenantSlug],
+		queryFn: () => publicOrderingApi.tenant(tenantSlug),
+		retry: false,
+		enabled: Boolean(tenantSlug),
+	});
 
-	if (tenantData === undefined) return <LogoLoadingScreen />;
+	if (tenant.isLoading) return <LogoLoadingScreen />;
 
-	const tenantName =
-		tenantData?.name ??
-		tenantSlug
-			.split("-")
-			.map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-			.join(" ");
-
-	// ── Tenant not found ────────────────────────────────────────────────────────
-	if (!tenantData) {
+	if (tenant.isError || !tenant.data?.data) {
 		return (
 			<main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background px-6 text-center">
 				<div className="pointer-events-none absolute inset-0 opacity-30">
@@ -64,7 +46,7 @@ export default function TenantLandingPage() {
 				<div className="relative z-10">
 					<h1 className="text-4xl font-bold">Restaurant not found</h1>
 					<p className="mt-3 text-muted-foreground">
-						This restaurant doesn&apos;t exist on ChowCall.
+						This restaurant is not active on ChowCall yet.
 					</p>
 					<Button asChild className="mt-6">
 						<a href={rootOrigin}>Go to ChowCall</a>
@@ -74,281 +56,97 @@ export default function TenantLandingPage() {
 		);
 	}
 
-	// ── Wrong-subdomain: signed-in user belongs to a different tenant ──────────
-	const userTenantSlug = user?.tenantSlug ?? user?.tenant?.slug;
-	const isOnWrongSubdomain =
-		user &&
-		!isSuperAdmin(user) &&
-		userTenantSlug &&
-		userTenantSlug !== tenantSlug;
+	const restaurant = tenant.data.data;
+	const restaurantName = restaurant.name || titleFromSlug(tenantSlug);
+	const orderHref = getPublicTenantPath(tenantSlug, "order");
+	const menuHref = getPublicTenantPath(tenantSlug, "menu");
+	const callHref = restaurant.phone ? `tel:${restaurant.phone}` : orderHref;
 
-	if (isOnWrongSubdomain) {
-		const correctHref = getTenantScopedPath(userTenantSlug!, "/dashboard");
-		const correctName = user.tenant?.name ?? userTenantSlug;
-
-		return (
-			<main className="relative flex min-h-screen flex-col overflow-hidden bg-background">
-				<div className="pointer-events-none absolute inset-0 opacity-30">
-					<FloatingPaths position={1} />
-					<FloatingPaths position={-1} />
-				</div>
-
-				<header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
-					<a
-						href={rootOrigin}
-						className="inline-flex items-center gap-2 rounded-md px-1 py-0.5 hover:opacity-80 transition-opacity"
-					>
-						<Image
-							alt="ChowCall"
-							src="/chowcall-logo.svg"
-							width={32}
-							height={32}
-							className="h-8 w-8 object-contain"
-						/>
-						<span className="text-base font-semibold tracking-tight">ChowCall</span>
-					</a>
-				</header>
-
-				<div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-20 text-center">
-					<div className="mb-6 flex size-16 items-center justify-center rounded-full border bg-card shadow-sm">
-						<IconAlertTriangle className="size-8 text-amber-500" />
-					</div>
-					<h1 className="text-3xl font-bold tracking-tight">
-						Wrong workspace
-					</h1>
-					<p className="mx-auto mt-3 max-w-md text-muted-foreground">
-						You&apos;re signed in to{" "}
-						<span className="font-semibold text-foreground">{correctName}</span>,
-						not <span className="font-semibold text-foreground">{tenantName}</span>.
-					</p>
-					<p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-						You can&apos;t access another restaurant&apos;s workspace. Let&apos;s take you
-						where you belong.
-					</p>
-					<div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-						<Button asChild size="lg" className="gap-2">
-							<a href={correctHref}>
-								<IconLayoutDashboard className="size-4" />
-								Go to my dashboard
-							</a>
-						</Button>
-						<Button asChild size="lg" variant="outline" className="gap-2">
-							<a href={rootSignin}>
-								Sign in as someone else
-								<IconArrowUpRight className="size-4" />
-							</a>
-						</Button>
-					</div>
-				</div>
-
-				<footer className="relative z-10 flex items-center justify-center gap-2 border-t py-5 text-sm text-muted-foreground">
-					<span>Powered by</span>
-					<a
-						href={rootOrigin}
-						className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors"
-					>
-						<Image
-							alt="ChowCall"
-							src="/chowcall-logo.svg"
-							width={18}
-							height={18}
-							className="h-4.5 w-4.5 object-contain"
-						/>
-						ChowCall
-					</a>
-				</footer>
-			</main>
-		);
-	}
-
-	// ── Correct tenant signed in — show Go to Dashboard ───────────────────────
-	const isOwnTenant = user && !isSuperAdmin(user) && userTenantSlug === tenantSlug;
-	const dashboardHref = isOwnTenant
-		? getTenantScopedPath(tenantSlug, "/dashboard")
-		: null;
-
-	// ── Tenant not active — access restricted gate ─────────────────────────────
-	if (tenantData.subscriptionStatus !== "active") {
-		return (
-			<main className="relative flex min-h-screen flex-col overflow-hidden bg-background">
-				<div className="pointer-events-none absolute inset-0 opacity-40">
-					<FloatingPaths position={1} />
-					<FloatingPaths position={-1} />
-				</div>
-
-				<header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
-					<a
-						href={rootOrigin}
-						className="inline-flex items-center gap-2 rounded-md px-1 py-0.5 hover:opacity-80 transition-opacity"
-						aria-label="ChowCall home"
-					>
-						{tenantData.logo ? (
-							// eslint-disable-next-line @next/next/no-img-element
-							<img src={tenantData.logo} alt={tenantName} className="h-9 w-9 rounded-md object-cover" />
-						) : (
-							<Image alt="ChowCall" src="/chowcall-logo.svg" width={36} height={36} className="h-9 w-9 object-contain" />
-						)}
-						<span className="text-base font-semibold tracking-tight text-foreground">
-							{tenantData.logo ? tenantName : "ChowCall"}
-						</span>
-					</a>
-					{dashboardHref && (
-						<Button asChild size="sm" className="gap-1.5">
-							<a href={dashboardHref}>
-								<IconLayoutDashboard className="size-3.5" />
-								Dashboard
-							</a>
-						</Button>
-					)}
-				</header>
-
-				<div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-20 text-center">
-					<div className="mb-6 flex size-16 items-center justify-center rounded-full border bg-card shadow-sm">
-						<IconLock className="size-8 text-muted-foreground" />
-					</div>
-					<h1 className="text-4xl font-bold tracking-tight text-primary">{tenantName}</h1>
-					<p className="mx-auto mt-4 max-w-md text-lg font-medium text-foreground">
-						This restaurant hasn&apos;t activated their ChowCall account yet.
-					</p>
-					<p className="mx-auto mt-2 max-w-sm text-muted-foreground">
-						If you&apos;re the owner, sign in to complete setup and choose a plan.
-					</p>
-					<div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-						{dashboardHref ? (
-							<Button asChild size="lg" className="gap-2">
-								<a href={dashboardHref}>
-									<IconLayoutDashboard className="size-4" />
-									Go to dashboard
-								</a>
-							</Button>
-						) : (
-							<Button asChild size="lg">
-								<a href={rootSignin}>Sign in as staff</a>
-							</Button>
-						)}
-						<Button asChild size="lg" variant="outline" className="gap-2">
-							<a href={rootOrigin}>
-								Learn about ChowCall
-								<IconArrowRight className="size-4" />
-							</a>
-						</Button>
-					</div>
-				</div>
-
-				<footer className="relative z-10 flex items-center justify-center gap-2 border-t py-5 text-sm text-muted-foreground">
-					<span>Powered by</span>
-					<a href={rootOrigin} className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">
-						<Image alt="ChowCall" src="/chowcall-logo.svg" width={18} height={18} className="h-4.5 w-4.5 object-contain" />
-						ChowCall
-					</a>
-				</footer>
-			</main>
-		);
-	}
-
-	// ── Active tenant — coming soon page ──────────────────────────────────────
 	return (
-		<main className="relative flex min-h-screen flex-col overflow-hidden bg-background">
-			<div className="pointer-events-none absolute inset-0 opacity-40">
+		<main className="relative min-h-screen overflow-hidden bg-background">
+			<div className="pointer-events-none absolute inset-0 opacity-30">
 				<FloatingPaths position={1} />
 				<FloatingPaths position={-1} />
 			</div>
-
-			<div
-				aria-hidden
-				className="pointer-events-none absolute inset-0 -z-10"
-			>
-				<div className="absolute left-1/2 top-0 h-125 w-200 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,--theme(--color-primary/.12),transparent_70%)]" />
-			</div>
-
 			<header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
-				<a
-					href={rootOrigin}
-					aria-label="ChowCall home"
-					className="inline-flex items-center gap-2 rounded-md px-1 py-0.5 hover:opacity-80 transition-opacity"
-				>
-					{tenantData.logo ? (
-						// eslint-disable-next-line @next/next/no-img-element
-						<img src={tenantData.logo} alt={tenantName} className="h-9 w-9 rounded-md object-cover" />
-					) : (
-						<Image alt="ChowCall" src="/chowcall-logo.svg" width={36} height={36} className="h-9 w-9 object-contain" />
-					)}
-					<span className="text-base font-semibold tracking-tight text-foreground">
-						{tenantData.logo ? tenantName : "ChowCall"}
-					</span>
+				<a href={rootOrigin} className="inline-flex items-center gap-2">
+					<Image alt="ChowCall" src="/chowcall-logo.svg" width={34} height={34} />
+					<span className="font-semibold tracking-tight">ChowCall</span>
 				</a>
-				{dashboardHref ? (
-					<Button asChild size="sm" className="gap-1.5">
-						<a href={dashboardHref}>
-							<IconLayoutDashboard className="size-3.5" />
-							Dashboard
-						</a>
-					</Button>
-				) : (
-					<Button asChild size="sm" variant="outline">
-						<a href={rootSignin}>Staff sign in</a>
-					</Button>
-				)}
 			</header>
 
-			<div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-20 text-center">
-				<div className="mb-8 inline-flex items-center gap-2 rounded-full border bg-card px-4 py-1.5 text-sm text-muted-foreground shadow-sm">
-					<span className="relative flex size-2">
-						<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-						<span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
-					</span>
-					Setting up {tenantName}
-				</div>
-
-				<h1 className="mx-auto max-w-2xl text-balance text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
-					{tenantName}
-				</h1>
-
-				<p className="mx-auto mt-5 max-w-md text-balance text-lg text-muted-foreground">
-					We&apos;re getting everything ready. You&apos;ll be able to order
-					right from this page very soon.
-				</p>
-
-				<div className="mt-8 flex items-center gap-3">
-					<div className="h-px w-12 bg-border" />
-					<span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
-						Coming soon
-					</span>
-					<div className="h-px w-12 bg-border" />
-				</div>
-
-				<div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-					{dashboardHref ? (
+			<section className="relative z-10 mx-auto grid min-h-[calc(100vh-84px)] max-w-6xl items-center gap-10 px-6 py-12 lg:grid-cols-[1.05fr_.95fr]">
+				<div>
+					<div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-sm text-muted-foreground">
+						<IconMessageCircle className="size-4 text-primary" />
+						AI ordering for {restaurantName}
+					</div>
+					<h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-6xl">
+						Order from {restaurantName} with ChowCall AI.
+					</h1>
+					<p className="mt-5 max-w-2xl text-lg text-muted-foreground">
+						Call or chat with the restaurant&apos;s AI assistant to place your
+						food order, confirm pickup or delivery, and get a payment link when
+						everything looks right.
+					</p>
+					<div className="mt-8 flex flex-wrap gap-3">
 						<Button asChild size="lg" className="gap-2">
-							<a href={dashboardHref}>
-								<IconLayoutDashboard className="size-4" />
-								Go to dashboard
+							<a href={orderHref}>
+								<IconMessageCircle className="size-5" />
+								Order Food with AI Chat
 							</a>
 						</Button>
-					) : (
-						<Button asChild size="lg" className="gap-2">
-							<a href={rootSignin}>
-								<IconPhone className="size-4" />
-								Staff portal
+						<Button asChild size="lg" variant="outline" className="gap-2">
+							<a href={callHref}>
+								<IconPhoneCall className="size-5" />
+								Call to Order
 							</a>
 						</Button>
-					)}
-					<Button asChild size="lg" variant="outline" className="gap-2">
-						<a href={rootOrigin}>
-							Learn about ChowCall
-							<IconArrowRight className="size-4" />
-						</a>
-					</Button>
+						<Button asChild size="lg" variant="ghost" className="gap-2">
+							<a href={menuHref}>
+								<IconToolsKitchen2 className="size-5" />
+								View Menu
+							</a>
+						</Button>
+					</div>
 				</div>
-			</div>
 
-			<footer className="relative z-10 flex items-center justify-center gap-2 border-t py-5 text-sm text-muted-foreground">
-				<span>Powered by</span>
-				<a href={rootOrigin} className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">
-					<Image alt="ChowCall" src="/chowcall-logo.svg" width={18} height={18} className="h-4.5 w-4.5 object-contain" />
-					ChowCall
-				</a>
-			</footer>
+				<div className="rounded-2xl border bg-card p-5 shadow-sm">
+					<div className="flex items-center gap-3 border-b pb-4">
+						{restaurant.logo ? (
+							// eslint-disable-next-line @next/next/no-img-element
+							<img src={restaurant.logo} alt={restaurantName} className="size-12 rounded-xl object-cover" />
+						) : (
+							<Image alt="ChowCall" src="/chowcall-logo.svg" width={48} height={48} />
+						)}
+						<div>
+							<h2 className="font-semibold">{restaurantName}</h2>
+							<p className="text-sm text-muted-foreground">
+								{restaurant.address ?? "Pickup and delivery ordering"}
+							</p>
+						</div>
+					</div>
+					<div className="space-y-4 pt-5">
+						<div className="rounded-xl bg-muted p-4">
+							<p className="text-sm font-medium">AI assistant</p>
+							<p className="mt-1 text-sm text-muted-foreground">
+								{restaurant.aiGreeting ??
+									`Hi, welcome to ${restaurantName}. Are you ordering for pickup or delivery today?`}
+							</p>
+						</div>
+						<div className="grid gap-3 text-sm sm:grid-cols-2">
+							<div className="rounded-xl border p-4">
+								<p className="font-medium">Pickup</p>
+								<p className="mt-1 text-muted-foreground">Confirm your food and collect when ready.</p>
+							</div>
+							<div className="rounded-xl border p-4">
+								<p className="font-medium">Delivery</p>
+								<p className="mt-1 text-muted-foreground">Add your address and get delivery pricing.</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
 		</main>
 	);
 }
