@@ -98,7 +98,8 @@ export default function BillingPlanPage() {
   });
 
   useEffect(() => {
-    const reference = searchParams.get("reference");
+    // Paystack returns ?reference=..., Flutterwave returns ?tx_ref=...
+    const reference = searchParams.get("reference") ?? searchParams.get("tx_ref");
     if (reference && !verify.isPending && !verify.isSuccess) {
       verify.mutate(reference);
     }

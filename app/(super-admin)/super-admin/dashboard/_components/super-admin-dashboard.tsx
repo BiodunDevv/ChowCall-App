@@ -17,13 +17,15 @@ export function SuperAdminDashboard() {
 
 	return (
 		<AppShell>
-			<div className="mb-6 space-y-1">
+			<div className="mb-6 min-w-0 space-y-1">
 				<p className="text-sm text-muted-foreground">Platform operations</p>
-				<h1 className="font-semibold text-2xl tracking-tight">
+				<h1 className="truncate font-semibold text-2xl tracking-tight">
 					Super admin dashboard
 				</h1>
 			</div>
-			<Dashboard />
+			<div className="min-w-0 overflow-hidden">
+				<Dashboard />
+			</div>
 		</AppShell>
 	);
 }

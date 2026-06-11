@@ -32,7 +32,6 @@ export function useProtectedSession() {
 		setUser(user);
 
 		const rootOrigin = getRootOrigin();
-		const tenantParam = params?.tenant;
 
 		if (isSuperAdmin(user)) {
 			if (!pathname.startsWith("/super-admin")) {
@@ -41,17 +40,16 @@ export function useProtectedSession() {
 			return;
 		}
 
+		// Non-admin on a super-admin path → send to their dashboard
 		const userTenantSlug = getUserTenantSlug(user);
 		if (pathname.startsWith("/super-admin") && userTenantSlug) {
 			window.location.replace(getTenantScopedPath(userTenantSlug, "/dashboard"));
 			return;
 		}
 
-		if (
-			tenantParam &&
-			userTenantSlug &&
-			tenantParam !== userTenantSlug
-		) {
+		// Wrong tenant slug in URL → redirect to the correct tenant's dashboard
+		const urlTenant = params?.tenant;
+		if (urlTenant && userTenantSlug && urlTenant !== userTenantSlug) {
 			window.location.replace(getTenantScopedPath(userTenantSlug, "/dashboard"));
 		}
 	}, [params?.tenant, pathname, session.data?.user, setUser]);

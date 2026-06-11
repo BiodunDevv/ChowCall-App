@@ -7,13 +7,15 @@ import { DashboardStats } from "@/components/dashboard/stats";
 
 export function Dashboard() {
 	return (
-		<div className="grid grid-cols-1 gap-px bg-border p-px md:grid-cols-2 lg:grid-cols-4">
-			<DashboardStats />
-			<NetRevenueChart />
-			<ChannelSalesChart />
-			<DashboardInvoices />
-			<BillingHealth />
-			<DashboardActivity />
+		<div className="w-full min-w-0 overflow-hidden rounded-xl border">
+			<div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
+				<DashboardStats />
+				<NetRevenueChart />
+				<ChannelSalesChart />
+				<DashboardInvoices />
+				<BillingHealth />
+				<DashboardActivity />
+			</div>
 		</div>
 	);
 }

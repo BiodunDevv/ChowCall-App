@@ -181,24 +181,23 @@ export const isSuperAdmin = (user: AuthUser | null | undefined) => {
 
 export const getPostAuthPath = (
 	user: AuthUser | null | undefined,
-	accessToken?: string | null,
+	_accessToken?: string | null,
 ): string => {
 	if (isSuperAdmin(user)) {
-		// Use absolute URL so this works correctly from any tenant subdomain
 		return `${getRootOrigin()}/super-admin/dashboard`;
 	}
 	const tenantSlug = getUserTenantSlug(user);
-	const path = tenantSlug ? getTenantScopedPath(tenantSlug, "/onboarding") : "/onboarding";
-	return appendLocalTokenHandoff(path, accessToken);
+	return tenantSlug
+		? getTenantScopedPath(tenantSlug, "/onboarding")
+		: "/onboarding";
 };
 
+/** Builds a same-origin path: /[tenantSlug][path]  e.g. /burgerhub/dashboard */
 export const getTenantScopedPath = (tenantSlug: string, path: string) => {
 	const normalizedSlug = slugifyTenant(tenantSlug);
 	const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-
 	if (!normalizedSlug) return normalizedPath;
-	const rootUrl = new URL(getRootOrigin());
-	return `${rootUrl.origin}/${normalizedSlug}${normalizedPath}`;
+	return `${getRootOrigin()}/${normalizedSlug}${normalizedPath}`;
 };
 
 export const getPublicTenantPath = (
@@ -222,27 +221,17 @@ export const slugifyTenant = (value: string) =>
 		.replace(/^-+|-+$/g, "")
 		.slice(0, 48);
 
-export const getTenantSlugFromHostname = (hostname: string) => {
-	const normalized = hostname.split(":")[0] ?? "";
-	const rootHost =
-		typeof window !== "undefined" ? new URL(getRootOrigin()).hostname : "";
-	if (normalized === rootHost) return "";
-	const parts = normalized.split(".");
-
-	if (
-		parts.length > 1 &&
-		!["www", "app", "localhost"].includes(parts[0] ?? "")
-	) {
-		return slugifyTenant(parts[0] ?? "");
-	}
-
-	return "";
+/** Extracts tenant slug from the current URL path: /[tenantSlug]/... → tenantSlug */
+export const getTenantSlugFromPath = (pathname: string): string => {
+	const segment = pathname.split("/").filter(Boolean)[0] ?? "";
+	// Skip reserved top-level paths
+	const reserved = new Set(["super-admin", "auth", "onboarding", "menu", "order", "api"]);
+	if (reserved.has(segment)) return "";
+	return slugifyTenant(segment);
 };
 
-export const getTenantUrlPreview = (slug: string, host?: string) => {
+export const getTenantUrlPreview = (slug: string, _host?: string) => {
 	const normalizedSlug = slugifyTenant(slug);
-	const fallbackHost = host || "localhost:3000";
-
-	if (!normalizedSlug) return fallbackHost;
+	if (!normalizedSlug) return getRootOrigin().replace(/^https?:\/\//, "");
 	return `${getRootOrigin().replace(/^https?:\/\//, "")}/${normalizedSlug}`;
 };

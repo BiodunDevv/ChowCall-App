@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { authApi, getPostAuthPath, getTenantSlugFromHostname, getTenantUrlPreview, slugifyTenant } from "@/lib/auth";
+import { authApi, getPostAuthPath, getTenantUrlPreview, slugifyTenant } from "@/lib/auth";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
 import { AuthShell } from "@/components/Auth/auth-shell";
@@ -27,18 +27,11 @@ export function SignUpPage() {
 	const setUser = useAuthStore((state) => state.setUser);
 	const setTokens = useAuthStore((state) => state.setTokens);
 	const setPendingOtp = useAuthStore((state) => state.setPendingOtp);
-	const [host] = useState(() =>
-		typeof window === "undefined" ? "" : window.location.host,
-	);
-	const [form, setForm] = useState<Record<string, string>>(() => {
-		if (typeof window === "undefined") return {};
-		const subdomainSlug = getTenantSlugFromHostname(window.location.host);
-		return subdomainSlug ? { slug: subdomainSlug } : ({} as Record<string, string>);
-	});
+	const [form, setForm] = useState<Record<string, string>>({});
 
 	const tenantUrlPreview = useMemo(
-		() => getTenantUrlPreview(form.slug ?? "", host),
-		[form.slug, host],
+		() => getTenantUrlPreview(form.slug ?? ""),
+		[form.slug],
 	);
 
 	const mutation = useMutation({

@@ -48,21 +48,21 @@ const invoices = [
 
 export function DashboardInvoices() {
 	return (
-		<DashboardCard className="relative gap-0 md:col-span-2">
+		<DashboardCard className="relative gap-0 sm:col-span-2">
 			<CardHeader className="border-b">
 				<CardTitle className="text-base">Recent invoices</CardTitle>
 				<CardDescription>Open amounts and payment status.</CardDescription>
 			</CardHeader>
-			<CardContent className="mask-b-from-50% mask-b-to-100% px-0">
+			<CardContent className="mask-b-from-50% mask-b-to-100% px-0 overflow-x-auto">
 				<Table>
 					<TableCaption className="sr-only">
 						Recent invoices with customer, amount, and status.
 					</TableCaption>
 					<TableHeader>
 						<TableRow>
-							<TableHead className="ps-6">Customer</TableHead>
+							<TableHead className="ps-4 sm:ps-6">Customer</TableHead>
 							<TableHead>Invoice</TableHead>
-							<TableHead className="pe-6 text-right tabular-nums">
+							<TableHead className="pe-4 sm:pe-6 text-right tabular-nums">
 								Amount
 							</TableHead>
 						</TableRow>
@@ -70,13 +70,13 @@ export function DashboardInvoices() {
 					<TableBody>
 						{invoices.map((inv) => (
 							<TableRow className="h-12" key={inv.id}>
-								<TableCell className="max-w-40 truncate ps-6 font-medium">
+								<TableCell className="max-w-30 truncate ps-4 sm:ps-6 font-medium text-sm">
 									{inv.customer}
 								</TableCell>
-								<TableCell className="text-muted-foreground tabular-nums">
+								<TableCell className="text-muted-foreground tabular-nums text-sm">
 									#{inv.id}
 								</TableCell>
-								<TableCell className="pe-6 text-right tabular-nums">
+								<TableCell className="pe-4 sm:pe-6 text-right tabular-nums text-sm">
 									{inv.amount}
 								</TableCell>
 							</TableRow>

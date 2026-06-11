@@ -81,7 +81,7 @@ function CustomGradientBar(
 
 export function NetRevenueChart() {
 	return (
-		<DashboardCard className="gap-0 md:col-span-2">
+		<DashboardCard className="gap-0 sm:col-span-2">
 			<CardHeader className="gap-2">
 				<div className="flex flex-wrap items-center gap-2">
 					<CardTitle>Net revenue</CardTitle>
