@@ -14,3 +14,5 @@ export type CustomerDetails = {
   address: string;
   landmark: string;
 };
+
+export type OrderStep = "browse" | "cart" | "details" | "confirm";

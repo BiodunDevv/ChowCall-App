@@ -1,25 +1,26 @@
 "use client";
 
-import Image from "next/image";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import {
-  IconCircleCheck,
-  IconCircleX,
-  IconToolsKitchen2,
-  IconMessageCircle,
-  IconMapPin,
-  IconClock,
-  IconSearch,
-} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { LogoLoadingScreen } from "@/components/shared/logo-loading-screen";
 import { getPublicTenantPath } from "@/lib/auth";
 import { formatMoney, publicOrderingApi } from "@/lib/public-ordering";
 import { getRootOrigin } from "@/lib/token";
 import { FloatingPaths } from "@/components/Auth/floating-paths";
-import { useState } from "react";
+import { TenantHeader } from "@/components/TenantLanding/tenant-header";
+import { TenantBanner } from "@/components/TenantLanding/tenant-banner";
+import { isOpenNow, getNextOpeningTime } from "@/lib/opening-hours";
+import {
+  IconToolsKitchen2,
+  IconMessageCircle,
+  IconMapPin,
+  IconSearch,
+  IconCircleCheck,
+  IconCircleX,
+  IconClock,
+} from "@tabler/icons-react";
 
 export default function PublicMenuPage() {
   const params = useParams<{ tenantSlug: string }>();
@@ -39,8 +40,7 @@ export default function PublicMenuPage() {
   const grouped = useMemo(() => {
     const groups = new Map<string, typeof allItems>();
     for (const item of allItems) {
-      const category = item.category || "Menu";
-      groups.set(category, [...(groups.get(category) ?? []), item]);
+      groups.set(item.category || "Menu", [...(groups.get(item.category || "Menu") ?? []), item]);
     }
     return Array.from(groups.entries());
   }, [allItems]);
@@ -66,13 +66,13 @@ export default function PublicMenuPage() {
         <div className="pointer-events-none absolute inset-0 opacity-20">
           <FloatingPaths position={1} />
         </div>
-        <div className="relative z-10">
-          <div className="mb-4 flex size-16 items-center justify-center rounded-2xl border bg-muted mx-auto">
+        <div className="relative z-10 space-y-4">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-2xl border bg-muted">
             <IconToolsKitchen2 className="size-8 text-muted-foreground" />
           </div>
-          <h1 className="text-3xl font-bold">Menu not available</h1>
-          <p className="mt-2 text-muted-foreground">This restaurant menu is not active on ChowCall yet.</p>
-          <Button asChild className="mt-6">
+          <h1 className="text-2xl font-bold">Menu not available</h1>
+          <p className="text-muted-foreground">This restaurant&apos;s menu isn&apos;t active on ChowCall yet.</p>
+          <Button asChild className="rounded-full">
             <a href={getRootOrigin()}>Go to ChowCall</a>
           </Button>
         </div>
@@ -82,97 +82,58 @@ export default function PublicMenuPage() {
 
   const restaurant = menu.data.tenant;
   const orderHref = getPublicTenantPath(tenantSlug, "order");
-  const totalItems = allItems.length;
-  const availableItems = allItems.filter((i) => i.available).length;
+  const menuHref = getPublicTenantPath(tenantSlug, "menu");
+  const callHref = restaurant.phone ? `tel:${restaurant.phone}` : orderHref;
+  const open = isOpenNow(restaurant.openingHours);
+  const nextOpen = getNextOpeningTime(restaurant.openingHours);
+  const availableCount = allItems.filter((i) => i.available).length;
 
   return (
-    <main className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur-lg">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <a href={getRootOrigin()} className="inline-flex items-center gap-2 shrink-0">
-            <Image alt="ChowCall" src="/chowcall-logo.svg" width={28} height={28} />
-            <span className="hidden font-semibold tracking-tight sm:block">ChowCall</span>
-          </a>
-          <Button asChild size="sm" className="gap-2 shrink-0">
-            <a href={orderHref}>
-              <IconMessageCircle className="size-4" />
-              Order with AI
-            </a>
-          </Button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background">
 
-      {/* Restaurant hero */}
-      <section className="border-b bg-card">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
-            {restaurant.logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={restaurant.logo}
-                alt={restaurant.name}
-                className="size-20 shrink-0 rounded-2xl border object-cover shadow-sm sm:size-24"
-              />
-            ) : (
-              <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl border bg-muted sm:size-24">
-                <IconToolsKitchen2 className="size-9 text-muted-foreground" />
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{restaurant.name}</h1>
-              {restaurant.address && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <IconMapPin className="size-3.5 shrink-0" />
-                  {restaurant.address}
-                </p>
-              )}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/8 px-3 py-1 text-xs font-medium text-primary">
-                  <IconToolsKitchen2 className="size-3.5" />
-                  {totalItems} item{totalItems !== 1 ? "s" : ""}
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                  <IconCircleCheck className="size-3.5" />
-                  {availableItems} available
-                </span>
-                {restaurant.openingHours && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                    <IconClock className="size-3.5" />
-                    {typeof restaurant.openingHours === "string" ? restaurant.openingHours : "See hours"}
-                  </span>
-                )}
-              </div>
-            </div>
-            <Button asChild size="lg" className="hidden gap-2 shrink-0 sm:flex">
-              <a href={orderHref}>
-                <IconMessageCircle className="size-5" />
-                Order with AI
-              </a>
-            </Button>
-          </div>
-        </div>
-      </section>
+      <TenantBanner
+        text={restaurant.bannerText}
+        enabled={restaurant.bannerEnabled ?? false}
+        restaurantName={restaurant.name}
+        restaurantLogo={restaurant.logo}
+        open={open}
+        nextOpen={nextOpen}
+        orderHref={orderHref}
+        callHref={callHref}
+        phone={restaurant.phone ?? null}
+      />
 
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        {/* Search + category filter */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <div className="relative flex-1">
-            <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <TenantHeader
+        restaurantName={restaurant.name}
+        restaurantLogo={restaurant.logo}
+        phone={restaurant.phone ?? null}
+        orderHref={orderHref}
+        menuHref={menuHref}
+      />
+
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+
+        <div className="mb-6 space-y-3">
+          <div className="relative">
+            <IconSearch className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search menu items…"
-              className="h-10 w-full rounded-xl border bg-background pl-9 pr-4 text-sm outline-none ring-offset-background transition-shadow focus:ring-2 focus:ring-ring"
+              placeholder="Search dishes…"
+              className="h-10 w-full rounded-full border bg-card pl-10 pr-4 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring"
             />
           </div>
           {categories.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+            <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none]">
               <button
                 type="button"
                 onClick={() => setActiveCategory(null)}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${!activeCategory ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground hover:text-foreground"}`}
+                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all ${
+                  !activeCategory
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-card text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                }`}
               >
                 All
               </button>
@@ -181,7 +142,11 @@ export default function PublicMenuPage() {
                   key={cat}
                   type="button"
                   onClick={() => setActiveCategory(cat === activeCategory ? null : cat)}
-                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${activeCategory === cat ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground hover:text-foreground"}`}
+                  className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all ${
+                    activeCategory === cat
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-card text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                  }`}
                 >
                   {cat}
                 </button>
@@ -192,10 +157,19 @@ export default function PublicMenuPage() {
 
         {/* Menu groups */}
         {filteredGrouped.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-16 text-center">
-            <IconSearch className="size-10 text-muted-foreground" />
-            <p className="font-medium">No items match your search</p>
-            <button type="button" onClick={() => { setSearch(""); setActiveCategory(null); }} className="text-sm text-primary hover:underline">
+          <div className="flex flex-col items-center gap-3 py-20 text-center">
+            <div className="flex size-14 items-center justify-center rounded-2xl border bg-card">
+              <IconSearch className="size-6 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="font-medium">No dishes found</p>
+              <p className="text-sm text-muted-foreground">Try a different search or category</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setSearch(""); setActiveCategory(null); }}
+              className="text-sm text-primary hover:underline"
+            >
               Clear filters
             </button>
           </div>
@@ -203,57 +177,85 @@ export default function PublicMenuPage() {
           <div className="space-y-10">
             {filteredGrouped.map(([category, items]) => (
               <section key={category}>
+                {/* Category heading */}
                 <div className="mb-4 flex items-center gap-3">
-                  <h2 className="text-lg font-semibold">{category}</h2>
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  <h2 className="text-base font-semibold tracking-tight">{category}</h2>
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                     {items.length}
                   </span>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {items.map((item) => (
-                    <article
-                      key={item._id ?? item.name}
-                      className={`group relative flex flex-col gap-3 rounded-2xl border bg-card p-4 transition-shadow hover:shadow-md ${!item.available ? "opacity-60" : ""}`}
-                    >
-                      {item.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
-                          className="h-36 w-full rounded-xl object-cover"
-                        />
-                      )}
-                      <div className="flex flex-1 flex-col gap-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-semibold leading-snug">{item.name}</h3>
-                          <span className="shrink-0 font-bold text-primary">{formatMoney(item.basePrice)}</span>
-                        </div>
-                        {item.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+
+                {/* Cards grid */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {items.map((item) => {
+                    const photo = item.photos?.[0]?.url ?? item.imageUrl ?? null;
+                    return (
+                      <article
+                        key={item._id ?? item.name}
+                        className={`group flex flex-col overflow-hidden rounded-2xl border bg-card transition-all hover:shadow-md hover:-translate-y-0.5 ${
+                          !item.available ? "opacity-60 grayscale" : ""
+                        }`}
+                      >
+                        {/* Image */}
+                        {photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={photo}
+                            alt={item.name}
+                            className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                          />
+                        ) : (
+                          <div className="flex h-32 w-full items-center justify-center bg-muted/50">
+                            <IconToolsKitchen2 className="size-8 text-muted-foreground/40" />
+                          </div>
                         )}
-                        {item.addons?.length ? (
-                          <p className="text-xs text-muted-foreground">
-                            Add-ons: {item.addons.map((a) => a.name).join(", ")}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${item.available ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
-                          {item.available ? (
-                            <IconCircleCheck className="size-3.5" />
-                          ) : (
-                            <IconCircleX className="size-3.5" />
+
+                        {/* Content */}
+                        <div className="flex flex-1 flex-col gap-2 p-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="font-semibold leading-snug text-foreground">{item.name}</h3>
+                            <span className="shrink-0 text-sm font-bold text-primary">
+                              {formatMoney(item.basePrice)}
+                            </span>
+                          </div>
+                          {item.description && (
+                            <p className="text-sm leading-relaxed text-muted-foreground line-clamp-2">
+                              {item.description}
+                            </p>
                           )}
-                          {item.available ? "Available" : "Sold out"}
-                        </span>
-                        {item.available && (
-                          <Button asChild size="sm" variant="outline" className="h-7 text-xs">
-                            <a href={orderHref}>Order</a>
-                          </Button>
-                        )}
-                      </div>
-                    </article>
-                  ))}
+                          {item.addons && item.addons.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Extras: {item.addons.map((a) => a.name).filter(Boolean).join(", ")}
+                            </p>
+                          )}
+
+                          {/* Footer */}
+                          <div className="mt-auto flex items-center justify-between pt-2">
+                            <span
+                              className={`inline-flex items-center gap-1 text-xs font-medium ${
+                                item.available
+                                  ? "text-teal-600 dark:text-teal-400"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {item.available ? (
+                                <IconCircleCheck className="size-3.5" />
+                              ) : (
+                                <IconCircleX className="size-3.5" />
+                              )}
+                              {item.available ? "Available" : "Sold out"}
+                            </span>
+                            {item.available && (
+                              <Button asChild size="sm" className="h-7 rounded-full px-3 text-xs">
+                                <a href={orderHref}>Order now</a>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               </section>
             ))}
@@ -263,13 +265,13 @@ export default function PublicMenuPage() {
 
       {/* Mobile sticky CTA */}
       <div className="sticky bottom-0 z-20 border-t bg-background/90 px-4 py-3 backdrop-blur-lg sm:hidden">
-        <Button asChild className="w-full gap-2" size="lg">
+        <Button asChild className="w-full gap-2 rounded-full" size="lg">
           <a href={orderHref}>
             <IconMessageCircle className="size-5" />
             Order with AI Chat
           </a>
         </Button>
       </div>
-    </main>
+    </div>
   );
 }

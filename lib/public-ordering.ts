@@ -87,6 +87,11 @@ export const publicOrderingApi = {
 			`/v1/public-ordering/${tenantSlug}/checkout`,
 			{ method: "POST", body: JSON.stringify(payload) },
 		),
+	chat: (tenantSlug: string, message: string, cart: unknown[] = []) =>
+		publicFetch<{ data: { reply: string } }>(
+			`/v1/public-ordering/${tenantSlug}/chat`,
+			{ method: "POST", body: JSON.stringify({ message, cart }) },
+		),
 	status: (tenantSlug: string, orderId: string) =>
 		publicFetch<PublicResponse<{ tenant: PublicTenant; order: Record<string, unknown> }>>(
 			`/v1/public-ordering/${tenantSlug}/orders/${orderId}/status`,

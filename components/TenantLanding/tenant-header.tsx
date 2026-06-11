@@ -5,7 +5,7 @@ import { ChowCallLogo } from "@/components/chowcall-logo";
 import { Button } from "@/components/ui/button";
 import { ThemeToggler } from "@/components/Landing/theme-toggler";
 import { useScroll } from "@/hooks/use-scroll";
-import { IconMessageCircle, IconPhoneCall, IconToolsKitchen2 } from "@tabler/icons-react";
+import { IconMessageCircle, IconPhoneCall, IconToolsKitchen2, IconShoppingCart } from "@tabler/icons-react";
 
 type TenantHeaderProps = {
   restaurantName: string;
@@ -13,9 +13,11 @@ type TenantHeaderProps = {
   phone: string | null;
   orderHref: string;
   menuHref: string;
+  cartCount?: number;
+  onCartOpen?: () => void;
 };
 
-export function TenantHeader({ restaurantName, restaurantLogo, phone, orderHref, menuHref }: TenantHeaderProps) {
+export function TenantHeader(props: TenantHeaderProps) {
   const scrolled = useScroll(10);
 
   return (
@@ -32,17 +34,17 @@ export function TenantHeader({ restaurantName, restaurantLogo, phone, orderHref,
           scrolled && "md:px-2"
         )}
       >
-        {/* If tenant has a logo — show only their brand. Otherwise ChowCall logo ~ placeholder */}
+        {/* Brand */}
         <div className="flex items-center gap-2">
-          {restaurantLogo ? (
+          {props.restaurantLogo ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={restaurantLogo}
-                alt={restaurantName}
+                src={props.restaurantLogo}
+                alt={props.restaurantName}
                 className="size-8 rounded-xl border object-cover"
               />
-              <span className=" text-sm font-semibold truncate max-w-35">{restaurantName}</span>
+              <span className="text-sm font-semibold truncate max-w-35">{props.restaurantName}</span>
             </>
           ) : (
             <>
@@ -50,43 +52,79 @@ export function TenantHeader({ restaurantName, restaurantLogo, phone, orderHref,
               <span className="select-none text-xs text-muted-foreground/50 font-light">~</span>
               <div
                 className="flex size-7 shrink-0 items-center justify-center rounded-lg border bg-muted"
-                title={restaurantName}
+                title={props.restaurantName}
               >
                 <IconToolsKitchen2 className="size-3.5 text-muted-foreground" />
               </div>
-              <span className="hidden text-sm font-medium sm:block truncate max-w-35">{restaurantName}</span>
+              <span className="hidden text-sm font-medium sm:block truncate max-w-35">{props.restaurantName}</span>
             </>
           )}
         </div>
 
+        {/* Desktop nav */}
         <div className="hidden items-center gap-2 md:flex">
           <Button asChild size="sm" variant="ghost">
-            <a href={menuHref}>Menu</a>
+            <a href={props.menuHref}>Menu</a>
           </Button>
-          {phone && (
+          {props.phone && (
             <Button asChild size="sm" variant="outline" className="gap-1.5">
-              <a href={`tel:${phone}`}>
+              <a href={`tel:${props.phone}`}>
                 <IconPhoneCall className="size-3.5" />
                 Call to Order
               </a>
             </Button>
           )}
           <Button asChild size="sm" className="gap-1.5 rounded-full">
-            <a href={orderHref}>
+            <a href={props.orderHref}>
               <IconMessageCircle className="size-3.5" />
               Order with AI
             </a>
           </Button>
+          {props.onCartOpen && (
+            <button
+              type="button"
+              onClick={props.onCartOpen}
+              className="relative flex size-8 items-center justify-center rounded-xl border bg-card transition-colors hover:bg-muted"
+              aria-label="Open cart"
+            >
+              <IconShoppingCart className="size-4" />
+              {(props.cartCount ?? 0) > 0 && (
+                <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {(props.cartCount ?? 0) > 9 ? "9+" : props.cartCount}
+                </span>
+              )}
+            </button>
+          )}
           <ThemeToggler className="size-8" />
         </div>
 
+        {/* Mobile nav */}
         <div className="flex items-center gap-2 md:hidden">
-          <Button asChild size="sm" className="gap-1.5 rounded-full text-xs">
-            <a href={orderHref}>
-              <IconMessageCircle className="size-3.5" />
-              Order
-            </a>
+          <Button asChild size="sm" variant="ghost" className="text-xs px-2.5">
+            <a href={props.menuHref}>Menu</a>
           </Button>
+          {props.onCartOpen ? (
+            <button
+              type="button"
+              onClick={props.onCartOpen}
+              className="relative flex size-9 items-center justify-center rounded-xl border bg-card transition-colors hover:bg-muted"
+              aria-label="Open cart"
+            >
+              <IconShoppingCart className="size-4" />
+              {(props.cartCount ?? 0) > 0 && (
+                <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {(props.cartCount ?? 0) > 9 ? "9+" : props.cartCount}
+                </span>
+              )}
+            </button>
+          ) : (
+            <Button asChild size="sm" className="gap-1.5 rounded-full text-xs">
+              <a href={props.orderHref}>
+                <IconMessageCircle className="size-3.5" />
+                Order
+              </a>
+            </Button>
+          )}
           <ThemeToggler className="size-9" />
         </div>
       </nav>
