@@ -87,6 +87,13 @@ export type PublicOrderCheckoutResponse = {
 	paymentRequired?: boolean;
 };
 
+export type WebSpeechToken = {
+	token: string;
+	region: string;
+	endpoint: string;
+	expiresInSeconds: number;
+};
+
 type PublicResponse<T> = { data: T; tenant?: PublicTenant };
 
 async function publicFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -133,6 +140,11 @@ export const publicOrderingApi = {
 		publicFetch<{ data: PublicChatResponse }>(
 			`/v1/public-ordering/${tenantSlug}/chat/message`,
 			{ method: "POST", body: JSON.stringify(payload) },
+		),
+	webSpeechToken: () =>
+		publicFetch<PublicResponse<WebSpeechToken>>(
+			"/v1/voice/web-token",
+			{ method: "POST", body: JSON.stringify({}) },
 		),
 	createOrder: (tenantSlug: string, payload: { sessionId: string; customer?: unknown }) =>
 		publicFetch<PublicResponse<PublicOrderCheckoutResponse>>(

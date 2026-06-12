@@ -30,6 +30,8 @@ import {
   IconTrash,
   IconShoppingCart,
   IconSend,
+  IconMicrophone,
+  IconMicrophoneOff,
   IconRobot,
   IconUser,
   IconCircleCheck,
@@ -48,6 +50,9 @@ import {
 
 type ChatMsg = { role: "ai" | "user"; text: string; itemsAdded?: string[] };
 type CheckoutStep = "closed" | "details" | "confirm";
+type VoiceCallState = "idle" | "connecting" | "listening" | "thinking" | "error";
+type SpeechSdkModule = typeof import("microsoft-cognitiveservices-speech-sdk");
+type SpeechRecognizer = InstanceType<SpeechSdkModule["SpeechRecognizer"]>;
 
 const EMPTY_CUSTOMER: CustomerDetails = {
   name: "", phone: "", email: "", address: "", landmark: "",
@@ -82,6 +87,10 @@ export default function PublicAiOrderPage() {
   const [aiTyping, setAiTyping] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [statusToken, setStatusToken] = useState<string | null>(null);
+  const [voiceState, setVoiceState] = useState<VoiceCallState>("idle");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const recognizerRef = useRef<SpeechRecognizer | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -313,6 +322,96 @@ export default function PublicAiOrderPage() {
     }
   }, [tenantSlug, sessionId, syncDraftSession, parseAndAddItems]);
 
+  const stopVoiceCall = useCallback(() => {
+    const recognizer = recognizerRef.current;
+    recognizerRef.current = null;
+    setLiveTranscript("");
+    if (!recognizer) {
+      setVoiceState("idle");
+      return;
+    }
+    recognizer.stopContinuousRecognitionAsync(
+      () => {
+        recognizer.close();
+        setVoiceState("idle");
+      },
+      () => {
+        recognizer.close();
+        setVoiceState("idle");
+      },
+    );
+  }, []);
+
+  const startVoiceCall = useCallback(async () => {
+    if (voiceState === "connecting" || voiceState === "listening" || voiceState === "thinking") return;
+    setVoiceError(null);
+    setLiveTranscript("");
+    setVoiceState("connecting");
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Voice ordering is not supported in this browser.");
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+
+      const [{ data }, SpeechSDK] = await Promise.all([
+        publicOrderingApi.webSpeechToken(),
+        import("microsoft-cognitiveservices-speech-sdk"),
+      ]);
+
+      const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(data.token, data.region);
+      speechConfig.speechRecognitionLanguage = "en-NG";
+      const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+      const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
+      recognizerRef.current = recognizer;
+
+      recognizer.recognizing = (_sender, event) => {
+        setLiveTranscript(event.result.text);
+      };
+
+      recognizer.recognized = async (_sender, event) => {
+        const text = event.result.text?.trim();
+        setLiveTranscript("");
+        if (!text) return;
+        setVoiceState("thinking");
+        await sendChat(text);
+        if (recognizerRef.current === recognizer) setVoiceState("listening");
+      };
+
+      recognizer.canceled = (_sender, event) => {
+        setVoiceError(event.errorDetails || "Voice ordering is temporarily unavailable.");
+        recognizerRef.current = null;
+        recognizer.close();
+        setVoiceState("error");
+      };
+
+      recognizer.sessionStopped = () => {
+        if (recognizerRef.current === recognizer) {
+          recognizerRef.current = null;
+          recognizer.close();
+          setVoiceState("idle");
+        }
+      };
+
+      recognizer.startContinuousRecognitionAsync(
+        () => setVoiceState("listening"),
+        (error) => {
+          recognizer.close();
+          recognizerRef.current = null;
+          setVoiceError(String(error || "Voice ordering is temporarily unavailable."));
+          setVoiceState("error");
+        },
+      );
+    } catch (error) {
+      setVoiceError(error instanceof Error ? error.message : "Voice ordering is temporarily unavailable.");
+      setVoiceState("error");
+    }
+  }, [sendChat, stopVoiceCall, voiceState]);
+
+  useEffect(() => stopVoiceCall, [stopVoiceCall]);
+
   // Scroll chat to bottom on new messages
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -461,7 +560,15 @@ export default function PublicAiOrderPage() {
 
           {/* Chat input bar */}
           <div className="border-t bg-card/80 px-4 py-3 backdrop-blur-sm sm:px-6">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2">
+              <VoiceCallControl
+                state={voiceState}
+                error={voiceError}
+                transcript={liveTranscript}
+                onStart={startVoiceCall}
+                onStop={stopVoiceCall}
+              />
+              <div className="flex items-center gap-2">
               <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
                 <IconSparkles className="size-3.5 text-primary" />
               </div>
@@ -493,6 +600,7 @@ export default function PublicAiOrderPage() {
                 <IconToolsKitchen2 className="size-3.5" />
                 <span className="hidden sm:block">Menu</span>
               </button>
+              </div>
             </div>
           </div>
         </div>
@@ -607,6 +715,63 @@ function UserBubble({ text }: { text: string }) {
       <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
         <IconUser className="size-3.5 text-muted-foreground" />
       </div>
+    </div>
+  );
+}
+
+function VoiceCallControl({
+  state,
+  error,
+  transcript,
+  onStart,
+  onStop,
+}: {
+  state: VoiceCallState;
+  error: string | null;
+  transcript: string;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  const active = state === "connecting" || state === "listening" || state === "thinking";
+  const status =
+    state === "connecting"
+      ? "Connecting to voice ordering..."
+      : state === "listening"
+        ? transcript || "Listening. Speak your order naturally."
+        : state === "thinking"
+          ? "Sending that to the ordering assistant..."
+          : state === "error"
+            ? error || "Voice ordering is temporarily unavailable."
+            : "Talk to the ordering assistant.";
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2">
+      <button
+        type="button"
+        onClick={active ? onStop : onStart}
+        className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+        disabled={state === "connecting"}
+        aria-label={active ? "End voice order" : "Start voice order"}
+      >
+        {active ? <IconMicrophoneOff className="size-4" /> : <IconMicrophone className="size-4" />}
+      </button>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium">
+          {active ? "AI voice order" : "Voice order"}
+        </p>
+        <p className={`truncate text-xs ${state === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+          {status}
+        </p>
+      </div>
+      {active && (
+        <button
+          type="button"
+          onClick={onStop}
+          className="shrink-0 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
+        >
+          End
+        </button>
+      )}
     </div>
   );
 }
