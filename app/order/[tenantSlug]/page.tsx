@@ -59,7 +59,10 @@ type LiveVoicePayload = {
   message?: string;
   code?: string;
   audio?: string;
+  data?: string;
   mimeType?: string;
+  role?: "assistant" | "user";
+  state?: SessionState;
   order?: PublicOrderSession;
 };
 
@@ -115,6 +118,7 @@ export default function PublicAiOrderPage() {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const playbackNodeRef = useRef<AudioWorkletNode | null>(null);
+  const fallbackSpeechTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transcriptBottomRef = useRef<HTMLDivElement>(null);
 
   // ── Menu sheet state
@@ -318,6 +322,9 @@ export default function PublicAiOrderPage() {
   }, [restaurant, sessionId, syncDraftSession, tenantSlug]);
 
   const stopVoiceCall = useCallback(() => {
+    if (fallbackSpeechTimerRef.current) clearTimeout(fallbackSpeechTimerRef.current);
+    fallbackSpeechTimerRef.current = null;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     // Stop playback worklet
     playbackNodeRef.current?.port.postMessage(null);
     playbackNodeRef.current = null;
@@ -331,10 +338,36 @@ export default function PublicAiOrderPage() {
     const socket = socketRef.current;
     socketRef.current = null;
     if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: "session.end" }));
+      socket.send(JSON.stringify({ type: "stop_session" }));
       socket.close();
     }
     setVoiceState("ended");
+  }, []);
+
+  const queueFallbackSpeech = useCallback((text: string) => {
+    if (fallbackSpeechTimerRef.current) clearTimeout(fallbackSpeechTimerRef.current);
+    fallbackSpeechTimerRef.current = setTimeout(() => {
+      if (!("speechSynthesis" in window) || !text.trim()) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-NG";
+      utterance.rate = 1;
+      utterance.onend = () => {
+        setVoiceState((current) => (current === "speaking" ? "listening" : current));
+      };
+      window.speechSynthesis.speak(utterance);
+    }, 650);
+  }, []);
+
+  const playPcmAudio = useCallback((base64Audio: string) => {
+    if (fallbackSpeechTimerRef.current) clearTimeout(fallbackSpeechTimerRef.current);
+    fallbackSpeechTimerRef.current = null;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    const binary = atob(base64Audio);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const int16 = new Int16Array(bytes.buffer);
+    playbackNodeRef.current?.port.postMessage(int16, [int16.buffer]);
   }, []);
 
   const startVoiceCall = useCallback(async () => {
@@ -393,7 +426,7 @@ export default function PublicAiOrderPage() {
       socketRef.current = socket;
 
       socket.onopen = () => {
-        socket.send(JSON.stringify({ type: "session.start" }));
+        socket.send(JSON.stringify({ type: "start_session" }));
 
         // Capture worklet — converts Float32 mic input → Int16 PCM → base64 → WebSocket
         // Buffer 100ms (2400 samples at 24kHz) before sending to reduce WebSocket message rate
@@ -415,38 +448,58 @@ export default function PublicAiOrderPage() {
               const bytes = new Uint8Array(captureBuf.buffer);
               let binary = "";
               for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-              socket.send(JSON.stringify({ type: "audio.chunk", audio: btoa(binary) }));
+              socket.send(JSON.stringify({ type: "audio_chunk", data: btoa(binary) }));
               captureBuf = new Int16Array(2400);
               captureOffset = 0;
             }
           }
         };
         source.connect(captureNode);
-        setVoiceState("listening");
       };
 
       socket.onmessage = (event) => {
         const payload = JSON.parse(String(event.data)) as LiveVoicePayload;
 
         if (payload.type === "session.ready") setVoiceState("listening");
+        if (payload.type === "session_started") setVoiceState("listening");
+        if (
+          payload.type === "status" &&
+          (payload.state === "listening" ||
+            payload.state === "thinking" ||
+            payload.state === "speaking")
+        ) {
+          setVoiceState(payload.state);
+        }
+        if (payload.type === "stop_playback") {
+          playbackNodeRef.current?.port.postMessage(null);
+        }
 
         if (payload.type === "caption.user" && payload.text) {
           setMessages((prev) => [...prev, { role: "user", text: payload.text! }]);
+        }
+        if (payload.type === "transcript" && payload.text) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: payload.role === "user" ? "user" : "ai",
+              text: payload.text!,
+            },
+          ]);
         }
 
         if (payload.type === "caption.assistant" && payload.text) {
           setVoiceState("speaking");
           setMessages((prev) => [...prev, { role: "ai", text: payload.text! }]);
+          queueFallbackSpeech(payload.text);
         }
 
         if (payload.type === "assistant.audio" && payload.audio) {
           setVoiceState("speaking");
-          // Decode base64 PCM16 → Int16Array → send to playback worklet
-          const binary = atob(payload.audio);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const int16 = new Int16Array(bytes.buffer);
-          playbackNodeRef.current?.port.postMessage(int16, [int16.buffer]);
+          playPcmAudio(payload.audio);
+        }
+        if (payload.type === "audio_data" && payload.data) {
+          setVoiceState("speaking");
+          playPcmAudio(payload.data);
         }
 
         if (payload.type === "order.updated" && payload.order) syncDraftSession(payload.order);
@@ -456,6 +509,7 @@ export default function PublicAiOrderPage() {
         }
         if (payload.type === "payment.paid") setVoiceState("paid");
         if (payload.type === "session.ended") setVoiceState("ended");
+        if (payload.type === "session_stopped") setVoiceState("ended");
         if (payload.type === "error") {
           setVoiceState("error");
           setVoiceError(payload.message ?? "Live voice ordering is temporarily unavailable.");
@@ -486,6 +540,8 @@ export default function PublicAiOrderPage() {
       setVoiceState("error");
     }
   }, [
+    playPcmAudio,
+    queueFallbackSpeech,
     syncDraftSession,
     tenantSlug,
     voiceState,
