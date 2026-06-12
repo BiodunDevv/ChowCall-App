@@ -104,7 +104,9 @@ export type LiveVoiceSessionResponse = {
 	agentVersion: string;
 	connectionMode: "backend_proxy";
 	status: string;
-	foundryConfigured?: boolean;
+	provider?: "aws_nova_sonic";
+	modelId?: string;
+	bedrockConfigured?: boolean;
 };
 
 type PublicResponse<T> = { data: T; tenant?: PublicTenant };

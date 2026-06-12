@@ -395,7 +395,7 @@ export default function PublicAiOrderPage() {
       // Request mic + start session in parallel
       const [stream, { data }] = await Promise.all([
         navigator.mediaDevices.getUserMedia({
-          audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
+          audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
         }),
         publicOrderingApi.startLiveVoiceSession(tenantSlug, {
           clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -405,8 +405,8 @@ export default function PublicAiOrderPage() {
       setLiveVoiceSessionId(data.sessionId);
       if (data.orderingSessionId) setSessionId(data.orderingSessionId);
 
-      // AudioContext at 24kHz — matches Azure Voice Live PCM16 format
-      const audioCtx = new AudioContext({ sampleRate: 24000 });
+      // AudioContext at 16kHz — matches Nova Sonic PCM16 input format.
+      const audioCtx = new AudioContext({ sampleRate: 16000 });
       audioContextRef.current = audioCtx;
       // Resume immediately — browsers suspend AudioContext until user gesture
       if (audioCtx.state === "suspended") await audioCtx.resume();

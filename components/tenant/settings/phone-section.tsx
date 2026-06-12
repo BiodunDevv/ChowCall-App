@@ -21,30 +21,67 @@ type VoiceOption = {
   gender?: string;
 };
 
+type VoiceGroup = {
+  language: string;
+  label: string;
+  voices: Array<{ id: string; label: string; genderSound?: string }>;
+};
+
+type VoiceModel = {
+  id: string;
+  label: string;
+};
+
 export function PhoneSection() {
   const [enabled, setEnabled] = useState(true);
   const [phone, setPhone] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [speechVoiceName, setSpeechVoiceName] = useState("en-NG-EzinneNeural");
-  const [speechLanguage, setSpeechLanguage] = useState("en-NG");
+  const [modelId, setModelId] = useState("amazon.nova-sonic-v1:0");
+  const [voiceId, setVoiceId] = useState("tiffany");
+  const [language, setLanguage] = useState("en-US");
+  const [speakingStyle, setSpeakingStyle] = useState("friendly");
+  const [responseSpeed, setResponseSpeed] = useState("normal");
+  const [allowInterruptions, setAllowInterruptions] = useState(true);
+  const [captionsEnabledByDefault, setCaptionsEnabledByDefault] = useState(true);
   const [voices, setVoices] = useState<VoiceOption[]>([]);
+  const [voiceOptions, setVoiceOptions] = useState<VoiceGroup[]>([]);
+  const [models, setModels] = useState<VoiceModel[]>([]);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
 
   useEffect(() => {
-    api<{ data?: { enabled?: boolean; phone?: string; greeting?: string; instructions?: string; speechVoiceName?: string; speechLanguage?: string } }>("/v1/tenants/current/phone")
+    api<{ data?: { enabled?: boolean; phone?: string; greeting?: string; instructions?: string; voiceSettings?: {
+      modelId?: string;
+      language?: string;
+      voiceId?: string;
+      speakingStyle?: string;
+      responseSpeed?: string;
+      allowInterruptions?: boolean;
+      captionsEnabledByDefault?: boolean;
+    }; models?: VoiceModel[]; voiceOptions?: VoiceGroup[] } }>("/v1/tenants/current/phone")
       .then((res) => {
         setEnabled(res.data?.enabled !== false);
         if (res.data?.phone) setPhone(res.data.phone);
         if (res.data?.greeting) setWelcomeMessage(res.data.greeting);
         if (res.data?.instructions) setInstructions(res.data.instructions);
-        if (res.data?.speechVoiceName) setSpeechVoiceName(res.data.speechVoiceName);
-        if (res.data?.speechLanguage) setSpeechLanguage(res.data.speechLanguage);
+        if (res.data?.voiceSettings?.modelId) setModelId(res.data.voiceSettings.modelId);
+        if (res.data?.voiceSettings?.language) setLanguage(res.data.voiceSettings.language);
+        if (res.data?.voiceSettings?.voiceId) setVoiceId(res.data.voiceSettings.voiceId);
+        if (res.data?.voiceSettings?.speakingStyle) setSpeakingStyle(res.data.voiceSettings.speakingStyle);
+        if (res.data?.voiceSettings?.responseSpeed) setResponseSpeed(res.data.voiceSettings.responseSpeed);
+        if (res.data?.voiceSettings?.allowInterruptions !== undefined) setAllowInterruptions(res.data.voiceSettings.allowInterruptions);
+        if (res.data?.voiceSettings?.captionsEnabledByDefault !== undefined) setCaptionsEnabledByDefault(res.data.voiceSettings.captionsEnabledByDefault);
+        if (res.data?.models) setModels(res.data.models);
+        if (res.data?.voiceOptions) setVoiceOptions(res.data.voiceOptions);
       })
       .catch(() => {});
-    api<{ data?: { voices?: VoiceOption[] } }>("/v1/voice/voices")
-      .then((res) => setVoices(res.data?.voices ?? []))
+    api<{ data?: { voices?: VoiceOption[]; models?: VoiceModel[]; voiceOptions?: VoiceGroup[] } }>("/v1/voice/voices")
+      .then((res) => {
+        setVoices(res.data?.voices ?? []);
+        setModels((current) => (current.length ? current : (res.data?.models ?? [])));
+        setVoiceOptions((current) => (current.length ? current : (res.data?.voiceOptions ?? [])));
+      })
       .catch(() => {});
   }, []);
 
@@ -58,9 +95,14 @@ export function PhoneSection() {
           phone,
           welcomeMessage,
           instructions,
-          speechVoiceName,
-          speechVoiceStyle: "friendly",
-          speechLanguage,
+          provider: "aws_nova_sonic",
+          modelId,
+          language,
+          voiceId,
+          speakingStyle,
+          responseSpeed,
+          allowInterruptions,
+          captionsEnabledByDefault,
         }),
       });
       toast.success("AI voice settings updated");
@@ -81,7 +123,7 @@ export function PhoneSection() {
       const utterance = new SpeechSynthesisUtterance(
         welcomeMessage.trim() || "Welcome. What would you like to order today?",
       );
-      utterance.lang = speechLanguage;
+      utterance.lang = language;
       window.speechSynthesis.speak(utterance);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not preview voice");
@@ -105,9 +147,9 @@ export function PhoneSection() {
         <div className="flex items-center justify-between gap-4 rounded-lg border bg-background p-3">
           <div className="space-y-0.5">
             <p className="text-sm font-medium">Enable voice ordering</p>
-            <p className="text-xs text-muted-foreground">
-              Customers can speak their order and hear the assistant respond.
-            </p>
+          <p className="text-xs text-muted-foreground">
+            Customers can speak their order and hear the Nova Sonic assistant respond.
+          </p>
           </div>
           <Switch checked={enabled} onCheckedChange={setEnabled} />
         </div>
@@ -150,37 +192,115 @@ export function PhoneSection() {
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Voice provider</Label>
+            <NativeSelect className="w-full" value="aws_nova_sonic" disabled>
+              <NativeSelectOption value="aws_nova_sonic">AWS Nova Sonic</NativeSelectOption>
+            </NativeSelect>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Model</Label>
+            <NativeSelect className="w-full" value={modelId} onChange={(event) => setModelId(event.target.value)}>
+              {models.map((model) => (
+                <NativeSelectOption key={model.id} value={model.id}>
+                  {model.label}
+                </NativeSelectOption>
+              ))}
+              {models.length === 0 ? <NativeSelectOption value={modelId}>Amazon Nova Sonic v1</NativeSelectOption> : null}
+            </NativeSelect>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Language</Label>
+            <NativeSelect
+              className="w-full"
+              value={language}
+              onChange={(event) => {
+                const nextLanguage = event.target.value;
+                setLanguage(nextLanguage);
+                const firstVoice = voiceOptions.find((group) => group.language === nextLanguage)?.voices[0];
+                if (firstVoice) setVoiceId(firstVoice.id);
+              }}
+            >
+              {voiceOptions.map((group) => (
+                <NativeSelectOption key={group.language} value={group.language}>
+                  {group.label}
+                </NativeSelectOption>
+              ))}
+              {voiceOptions.length === 0 ? <NativeSelectOption value={language}>{language}</NativeSelectOption> : null}
+            </NativeSelect>
+          </div>
+
           <div className="space-y-1.5">
             <Label>Assistant voice</Label>
             <NativeSelect
               className="w-full"
-              value={speechVoiceName}
+              value={voiceId}
               onChange={(event) => {
                 const voice = voices.find((item) => item.name === event.target.value);
-                setSpeechVoiceName(event.target.value);
-                if (voice?.locale) setSpeechLanguage(voice.locale);
+                setVoiceId(event.target.value);
+                if (voice?.locale) setLanguage(voice.locale);
               }}
             >
-              {voices.map((voice) => (
+              {voices.filter((voice) => voice.locale === language).map((voice) => (
                 <NativeSelectOption key={voice.name} value={voice.name}>
                   {voice.displayName} · {voice.locale}
                 </NativeSelectOption>
               ))}
               {voices.length === 0 ? (
-                <NativeSelectOption value={speechVoiceName}>{speechVoiceName}</NativeSelectOption>
+                <NativeSelectOption value={voiceId}>{voiceId}</NativeSelectOption>
               ) : null}
             </NativeSelect>
           </div>
-          <div className="flex items-end">
-            <Button type="button" variant="outline" onClick={testVoice} disabled={testing}>
-              <IconVolume className="size-4" />
-              {testing ? "Playing..." : "Preview"}
-            </Button>
+
+          <div className="space-y-1.5">
+            <Label>Speaking style</Label>
+            <NativeSelect className="w-full" value={speakingStyle} onChange={(event) => setSpeakingStyle(event.target.value)}>
+              <NativeSelectOption value="friendly">Friendly</NativeSelectOption>
+              <NativeSelectOption value="professional">Professional</NativeSelectOption>
+              <NativeSelectOption value="warm">Warm</NativeSelectOption>
+              <NativeSelectOption value="calm">Calm</NativeSelectOption>
+              <NativeSelectOption value="fast">Fast</NativeSelectOption>
+            </NativeSelect>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Response speed</Label>
+            <NativeSelect className="w-full" value={responseSpeed} onChange={(event) => setResponseSpeed(event.target.value)}>
+              <NativeSelectOption value="normal">Normal</NativeSelectOption>
+              <NativeSelectOption value="fast">Fast</NativeSelectOption>
+            </NativeSelect>
           </div>
         </div>
 
-        <div className="flex justify-end">
+        <p className="text-xs text-muted-foreground">
+          Nova Sonic currently supports selected languages and voices. For Nigerian restaurants, we recommend clear English with Nigerian-friendly assistant instructions.
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex items-center justify-between gap-4 rounded-lg border bg-background p-3">
+            <div>
+              <p className="text-sm font-medium">Allow interruptions</p>
+              <p className="text-xs text-muted-foreground">Customers can speak while the assistant is replying.</p>
+            </div>
+            <Switch checked={allowInterruptions} onCheckedChange={setAllowInterruptions} />
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-lg border bg-background p-3">
+            <div>
+              <p className="text-sm font-medium">Show captions</p>
+              <p className="text-xs text-muted-foreground">Transcripts appear during voice orders by default.</p>
+            </div>
+            <Switch checked={captionsEnabledByDefault} onCheckedChange={setCaptionsEnabledByDefault} />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={testVoice} disabled={testing}>
+            <IconVolume className="size-4" />
+            {testing ? "Playing..." : "Preview"}
+          </Button>
           <Button onClick={save} disabled={saving}>
             {saving ? "Saving..." : "Save voice settings"}
           </Button>
