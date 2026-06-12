@@ -22,17 +22,14 @@ import { AddressPicker, type AddressResult } from "@/components/ui/address-picke
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { CartLine, CustomerDetails } from "@/components/OrderFlow/order-types";
+import { LiveVoicePanel } from "@/components/voice/LiveVoicePanel";
+import type { SessionState } from "@/components/voice/types";
 import {
   IconToolsKitchen2,
   IconPlus,
   IconMinus,
   IconTrash,
   IconShoppingCart,
-  IconMicrophone,
-  IconMicrophoneOff,
-  IconVolume,
-  IconRobot,
-  IconUser,
   IconCircleCheck,
   IconLoader,
   IconShieldCheck,
@@ -44,19 +41,27 @@ import {
   IconSearch,
   IconMail,
   IconArrowRight,
-  IconAlertTriangle,
-  IconPhone,
   IconMenu2,
+  IconRobot,
+  IconUser,
+  IconAlertTriangle,
+  IconMicrophone,
+  IconVolume,
 } from "@tabler/icons-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type TranscriptMsg = { role: "ai" | "user"; text: string; itemsAdded?: string[] };
 type CheckoutStep = "closed" | "details" | "confirm";
-type VoiceCallState = "idle" | "connecting" | "speaking" | "listening" | "thinking" | "error";
-type SpeechSdkModule = typeof import("microsoft-cognitiveservices-speech-sdk");
-type SpeechRecognizer = InstanceType<SpeechSdkModule["SpeechRecognizer"]>;
-type SpeechSynthesizer = InstanceType<SpeechSdkModule["SpeechSynthesizer"]>;
+type LiveVoicePayload = {
+  type?: string;
+  text?: string;
+  message?: string;
+  code?: string;
+  audio?: string;
+  mimeType?: string;
+  order?: PublicOrderSession;
+};
 
 const EMPTY_CUSTOMER: CustomerDetails = {
   name: "", phone: "", email: "", address: "", landmark: "",
@@ -78,13 +83,13 @@ function makeId(item: PublicMenuItem) {
   return item._id ?? item.id ?? item.name;
 }
 
-function escapeXml(str: string) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+function liveVoiceWsUrl(tenantSlug: string, sessionId: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+  const base = new URL(apiUrl);
+  base.protocol = base.protocol === "https:" ? "wss:" : "ws:";
+  base.pathname = `/v1/public-ordering/${tenantSlug}/live-voice/stream/${sessionId}`;
+  base.search = "";
+  return base.toString();
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
@@ -101,16 +106,15 @@ export default function PublicAiOrderPage() {
   // ── Voice order state
   const [messages, setMessages] = useState<TranscriptMsg[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [liveVoiceSessionId, setLiveVoiceSessionId] = useState<string | null>(null);
   const [statusToken, setStatusToken] = useState<string | null>(null);
-  const [voiceState, setVoiceState] = useState<VoiceCallState>("idle");
+  const [voiceState, setVoiceState] = useState<SessionState>("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  const [liveTranscript, setLiveTranscript] = useState("");
-  const recognizerRef = useRef<SpeechRecognizer | null>(null);
-  const synthesizerRef = useRef<SpeechSynthesizer | null>(null);
-  const speechSdkRef = useRef<SpeechSdkModule | null>(null);
-  const speechConfigRef = useRef<ReturnType<
-    SpeechSdkModule["SpeechConfig"]["fromAuthorizationToken"]
-  > | null>(null);
+  const [captionsActive, setCaptionsActive] = useState(false);
+  const socketRef = useRef<WebSocket | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const playbackNodeRef = useRef<AudioWorkletNode | null>(null);
   const transcriptBottomRef = useRef<HTMLDivElement>(null);
 
   // ── Menu sheet state
@@ -313,74 +317,24 @@ export default function PublicAiOrderPage() {
     };
   }, [restaurant, sessionId, syncDraftSession, tenantSlug]);
 
-  // ── Fast SSML speech synthesis (+15% rate for snappier responses)
-  const speakText = useCallback(
-    (text: string) =>
-      new Promise<void>((resolve, reject) => {
-        const SpeechSDK = speechSdkRef.current;
-        const speechConfig = speechConfigRef.current;
-        if (!SpeechSDK || !speechConfig || !text.trim()) {
-          resolve();
-          return;
-        }
-        const synthesizer = new SpeechSDK.SpeechSynthesizer(
-          speechConfig,
-          SpeechSDK.AudioConfig.fromDefaultSpeakerOutput(),
-        );
-        synthesizerRef.current = synthesizer;
-        const voiceName = speechConfig.speechSynthesisVoiceName || "en-NG-EzinneNeural";
-        const lang = speechConfig.speechRecognitionLanguage || "en-NG";
-        const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${lang}"><voice name="${voiceName}"><prosody rate="15%">${escapeXml(text)}</prosody></voice></speak>`;
-        synthesizer.speakSsmlAsync(
-          ssml,
-          () => {
-            synthesizer.close();
-            if (synthesizerRef.current === synthesizer) synthesizerRef.current = null;
-            resolve();
-          },
-          (error) => {
-            synthesizer.close();
-            if (synthesizerRef.current === synthesizer) synthesizerRef.current = null;
-            reject(new Error(String(error || "Speech playback failed.")));
-          },
-        );
-      }),
-    [],
-  );
-
   const stopVoiceCall = useCallback(() => {
-    const recognizer = recognizerRef.current;
-    const synthesizer = synthesizerRef.current;
-    recognizerRef.current = null;
-    synthesizerRef.current = null;
-    setLiveTranscript("");
-    if (synthesizer) synthesizer.close();
-    if (!recognizer) {
-      setVoiceState("idle");
-      return;
+    // Stop playback worklet
+    playbackNodeRef.current?.port.postMessage(null);
+    playbackNodeRef.current = null;
+    // Close audio context (also stops capture worklet)
+    audioContextRef.current?.close();
+    audioContextRef.current = null;
+    // Stop mic stream
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+    // Close WebSocket
+    const socket = socketRef.current;
+    socketRef.current = null;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "session.end" }));
+      socket.close();
     }
-    recognizer.stopContinuousRecognitionAsync(
-      () => {
-        recognizer.close();
-        setVoiceState("idle");
-      },
-      () => {
-        recognizer.close();
-        setVoiceState("idle");
-      },
-    );
-  }, []);
-
-  const startRecognizer = useCallback((recognizer: SpeechRecognizer) => {
-    recognizer.startContinuousRecognitionAsync(
-      () => setVoiceState("listening"),
-      (error) => {
-        recognizer.close();
-        recognizerRef.current = null;
-        setVoiceError(String(error || "Voice ordering is temporarily unavailable."));
-        setVoiceState("error");
-      },
-    );
+    setVoiceState("ended");
   }, []);
 
   const startVoiceCall = useCallback(async () => {
@@ -393,11 +347,11 @@ export default function PublicAiOrderPage() {
       voiceState === "connecting" ||
       voiceState === "speaking" ||
       voiceState === "listening" ||
-      voiceState === "thinking"
+      voiceState === "thinking" ||
+      voiceState === "muted"
     )
       return;
     setVoiceError(null);
-    setLiveTranscript("");
     setVoiceState("connecting");
 
     try {
@@ -405,107 +359,125 @@ export default function PublicAiOrderPage() {
         throw new Error("Voice ordering is not supported in this browser.");
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
+      // Request mic + start session in parallel
+      const [stream, { data }] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({
+          audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
+        }),
+        publicOrderingApi.startLiveVoiceSession(tenantSlug, {
+          clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
+      ]);
+      mediaStreamRef.current = stream;
+      setLiveVoiceSessionId(data.sessionId);
+      if (data.orderingSessionId) setSessionId(data.orderingSessionId);
 
-      const [{ data }, SpeechSDK] = await Promise.all([
-        publicOrderingApi.webSpeechToken(tenantSlug),
-        import("microsoft-cognitiveservices-speech-sdk"),
+      // AudioContext at 24kHz — matches Azure Voice Live PCM16 format
+      const audioCtx = new AudioContext({ sampleRate: 24000 });
+      audioContextRef.current = audioCtx;
+      // Resume immediately — browsers suspend AudioContext until user gesture
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+
+      // Load both worklets
+      await Promise.all([
+        audioCtx.audioWorklet.addModule("/audio-capture-worklet.js"),
+        audioCtx.audioWorklet.addModule("/audio-playback-worklet.js"),
       ]);
 
-      const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(
-        data.token,
-        data.region,
-      );
-      speechConfig.speechRecognitionLanguage = data.voice.speechLanguage || "en-NG";
-      speechConfig.speechSynthesisVoiceName =
-        data.voice.speechVoiceName || "en-NG-EzinneNeural";
-      // Reduce initial silence timeout for faster response
-      speechConfig.setProperty(
-        "SpeechServiceConnection_InitialSilenceTimeoutMs",
-        "4000",
-      );
-      speechConfig.setProperty(
-        "SpeechServiceConnection_EndSilenceTimeoutMs",
-        "700",
-      );
-      speechSdkRef.current = SpeechSDK;
-      speechConfigRef.current = speechConfig;
+      // Playback worklet — queues and plays Int16 PCM frames from Azure
+      const playbackNode = new AudioWorkletNode(audioCtx, "audio-playback-processor");
+      playbackNode.connect(audioCtx.destination);
+      playbackNodeRef.current = playbackNode;
 
-      const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
-      const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
-      recognizerRef.current = recognizer;
+      const socket = new WebSocket(liveVoiceWsUrl(tenantSlug, data.sessionId));
+      socketRef.current = socket;
 
-      recognizer.recognizing = (_sender, event) => {
-        setLiveTranscript(event.result.text);
-      };
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ type: "session.start" }));
 
-      recognizer.recognized = async (_sender, event) => {
-        const text = event.result.text?.trim();
-        setLiveTranscript("");
-        if (!text) return;
-        setVoiceState("thinking");
-        recognizer.stopContinuousRecognitionAsync(
-          async () => {
-            try {
-              const res = await publicOrderingApi.sendChatMessage(tenantSlug, {
-                sessionId,
-                message: text,
-              });
-              syncDraftSession(res.data.session);
-              const added = (res.data.addedItems ?? []).map(
-                (item) =>
-                  `${item.quantity > 1 ? `${item.quantity}× ` : ""}${item.name}`,
-              );
-              const finalReply =
-                res.data.assistantMessage ||
-                res.data.reply ||
-                "I updated your order.";
-              if (res.data.paymentReady) setCheckoutStep("details");
-              setMessages((prev) => [
-                ...prev,
-                { role: "user", text },
-                { role: "ai", text: finalReply, itemsAdded: added },
-              ]);
-              setVoiceState("speaking");
-              await speakText(finalReply);
-            } catch {
-              const fallback = "I could not update that order. Please try again.";
-              setMessages((prev) => [
-                ...prev,
-                { role: "user", text },
-                { role: "ai", text: fallback },
-              ]);
-              setVoiceError(fallback);
-            } finally {
-              if (recognizerRef.current === recognizer) startRecognizer(recognizer);
+        // Capture worklet — converts Float32 mic input → Int16 PCM → base64 → WebSocket
+        // Buffer 100ms (2400 samples at 24kHz) before sending to reduce WebSocket message rate
+        const source = audioCtx.createMediaStreamSource(stream);
+        const captureNode = new AudioWorkletNode(audioCtx, "audio-capture-processor");
+        let captureBuf = new Int16Array(2400);
+        let captureOffset = 0;
+        captureNode.port.onmessage = (e: MessageEvent<{ buffer: ArrayBuffer }>) => {
+          if (socket.readyState !== WebSocket.OPEN) return;
+          const chunk = new Int16Array(e.data.buffer);
+          let chunkOffset = 0;
+          while (chunkOffset < chunk.length) {
+            const space = captureBuf.length - captureOffset;
+            const toCopy = Math.min(space, chunk.length - chunkOffset);
+            captureBuf.set(chunk.subarray(chunkOffset, chunkOffset + toCopy), captureOffset);
+            captureOffset += toCopy;
+            chunkOffset += toCopy;
+            if (captureOffset >= captureBuf.length) {
+              const bytes = new Uint8Array(captureBuf.buffer);
+              let binary = "";
+              for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+              socket.send(JSON.stringify({ type: "audio.chunk", audio: btoa(binary) }));
+              captureBuf = new Int16Array(2400);
+              captureOffset = 0;
             }
-          },
-          () => {
-            if (recognizerRef.current === recognizer) startRecognizer(recognizer);
-          },
-        );
+          }
+        };
+        source.connect(captureNode);
+        setVoiceState("listening");
       };
 
-      recognizer.canceled = (_sender, event) => {
-        setVoiceError(event.errorDetails || "Voice ordering is temporarily unavailable.");
-        recognizerRef.current = null;
-        recognizer.close();
-        setVoiceState("error");
-      };
+      socket.onmessage = (event) => {
+        const payload = JSON.parse(String(event.data)) as LiveVoicePayload;
 
-      recognizer.sessionStopped = () => {
-        if (recognizerRef.current === recognizer) {
-          recognizerRef.current = null;
-          recognizer.close();
-          setVoiceState("idle");
+        if (payload.type === "session.ready") setVoiceState("listening");
+
+        if (payload.type === "caption.user" && payload.text) {
+          setMessages((prev) => [...prev, { role: "user", text: payload.text! }]);
+        }
+
+        if (payload.type === "caption.assistant" && payload.text) {
+          setVoiceState("speaking");
+          setMessages((prev) => [...prev, { role: "ai", text: payload.text! }]);
+        }
+
+        if (payload.type === "assistant.audio" && payload.audio) {
+          setVoiceState("speaking");
+          // Decode base64 PCM16 → Int16Array → send to playback worklet
+          const binary = atob(payload.audio);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const int16 = new Int16Array(bytes.buffer);
+          playbackNodeRef.current?.port.postMessage(int16, [int16.buffer]);
+        }
+
+        if (payload.type === "order.updated" && payload.order) syncDraftSession(payload.order);
+        if (payload.type === "payment.ready") {
+          setVoiceState("payment_pending");
+          setCheckoutStep("details");
+        }
+        if (payload.type === "payment.paid") setVoiceState("paid");
+        if (payload.type === "session.ended") setVoiceState("ended");
+        if (payload.type === "error") {
+          setVoiceState("error");
+          setVoiceError(payload.message ?? "Live voice ordering is temporarily unavailable.");
         }
       };
 
-      setVoiceState("speaking");
-      await speakText(data.voice.greeting);
-      if (recognizerRef.current === recognizer) startRecognizer(recognizer);
+      socket.onerror = () => {
+        setVoiceState("error");
+        setVoiceError("Live voice ordering is temporarily unavailable. You can still use the menu and cart.");
+      };
+
+      socket.onclose = () => {
+        mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+        socketRef.current = null;
+        setVoiceState((current) => (current === "error" ? current : "ended"));
+      };
     } catch (error) {
+      audioContextRef.current?.close();
+      audioContextRef.current = null;
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
       setVoiceError(
         error instanceof Error
           ? error.message
@@ -514,9 +486,6 @@ export default function PublicAiOrderPage() {
       setVoiceState("error");
     }
   }, [
-    sessionId,
-    speakText,
-    startRecognizer,
     syncDraftSession,
     tenantSlug,
     voiceState,
@@ -526,10 +495,24 @@ export default function PublicAiOrderPage() {
 
   useEffect(() => stopVoiceCall, [stopVoiceCall]);
 
+  const toggleMute = useCallback(() => {
+    const stream = mediaStreamRef.current;
+    const socket = socketRef.current;
+    if (!stream) return;
+    const nextMuted = voiceState !== "muted";
+    stream.getAudioTracks().forEach((track) => {
+      track.enabled = !nextMuted;
+    });
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: nextMuted ? "audio.mute" : "audio.unmute" }));
+    }
+    setVoiceState(nextMuted ? "muted" : "listening");
+  }, [voiceState]);
+
   // Auto-scroll to bottom on new messages/transcript
   useEffect(() => {
     transcriptBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, liveTranscript, voiceState]);
+  }, [messages, voiceState]);
 
   // ── Menu grouping
   const grouped = useMemo(() => {
@@ -603,15 +586,6 @@ export default function PublicAiOrderPage() {
 
   const open = isOpenNow(restaurant.openingHours);
   const nextOpen = getNextOpeningTime(restaurant.openingHours);
-  const greeting =
-    restaurant.aiGreeting ??
-    `Hi! Welcome to ${restaurant.name}. Tap the mic and tell me what you'd like to order — or ask to see the menu.`;
-
-  const voiceActive =
-    voiceState === "connecting" ||
-    voiceState === "speaking" ||
-    voiceState === "listening" ||
-    voiceState === "thinking";
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
@@ -623,179 +597,38 @@ export default function PublicAiOrderPage() {
         </div>
       )}
 
-      {/* Order page header */}
-      <OrderHeader
+      {/* Minimal top bar — restaurant identity + utility actions */}
+      <VoiceTopBar
         restaurantName={restaurant.name}
         restaurantLogo={restaurant.logo ?? null}
-        open={open}
-        nextOpen={nextOpen}
-        phone={restaurant.phone ?? null}
         cartCount={cartCount}
         onMenu={() => setMenuOpen(true)}
         onCart={() => setCheckoutStep("details")}
       />
 
-      {/* ── Main layout ─────────────────────────────────────────────── */}
+      {/* Full-height voice panel — single column, matches reference App.tsx */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-
-        {/* ── CENTER: Voice panel ──────────────────────────────────── */}
-        <div className="flex min-w-0 flex-1 flex-col">
-
-          {/* ── Scrollable transcript area ── */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-lg px-4 py-5">
-
-              {/* Restaurant hero — shown when no messages yet */}
-              {messages.length === 0 && (
-                <RestaurantHero
-                  restaurant={restaurant}
-                  greeting={greeting}
-                  open={open}
-                  nextOpen={nextOpen}
-                  voiceUnavailable={voiceUnavailable}
-                  voiceUnavailableMessage={voiceUnavailableMessage}
-                />
-              )}
-
-              {/* Read-only transcript */}
-              {messages.length > 0 && (
-                <div className="space-y-4">
-                  {/* Re-show greeting as first AI bubble */}
-                  <AiBubble text={greeting} />
-
-                  {messages.map((msg, i) =>
-                    msg.role === "ai" ? (
-                      <div key={i}>
-                        <AiBubble text={msg.text} />
-                        {msg.itemsAdded && msg.itemsAdded.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5 pl-9">
-                            {msg.itemsAdded.map((name) => (
-                              <span
-                                key={name}
-                                className="inline-flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-700 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-300"
-                              >
-                                <IconCircleCheck className="size-3" />
-                                {name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <UserBubble key={i} text={msg.text} />
-                    ),
-                  )}
-
-                  {/* Email capture card */}
-                  {needsEmailCapture && (
-                    <EmailCaptureCard
-                      onSubmit={(email) => {
-                        setCapturedEmail(email);
-                        publicOrderingApi
-                          .sendChatMessage(tenantSlug, { sessionId, message: email })
-                          .then((res) => {
-                            syncDraftSession(res.data.session);
-                            const reply =
-                              res.data.assistantMessage ||
-                              res.data.reply ||
-                              "Got it! Your order is ready.";
-                            if (res.data.paymentReady) setCheckoutStep("details");
-                            setMessages((prev) => [
-                              ...prev,
-                              { role: "user", text: email },
-                              { role: "ai", text: reply },
-                            ]);
-                          })
-                          .catch(() => undefined);
-                      }}
-                    />
-                  )}
-                </div>
-              )}
-
-              <div ref={transcriptBottomRef} />
-            </div>
-          </div>
-
-          {/* ── Voice control bottom section ── */}
-          <div className="shrink-0 border-t bg-card/80 backdrop-blur-sm">
-            <div className="mx-auto w-full max-w-lg px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
-
-              {/* Live transcript chip */}
-              <TranscriptChip state={voiceState} transcript={liveTranscript} error={voiceError} />
-
-              {/* Large mic button */}
-              <MicButton
-                state={voiceState}
-                onStart={startVoiceCall}
-                onStop={stopVoiceCall}
-                disabled={voiceUnavailable}
-              />
-
-              {/* Utility bar: Menu + Cart + restaurant phone */}
-              <div className="mt-4 flex items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen(true)}
-                  className="flex h-9 items-center gap-1.5 rounded-full border bg-background px-4 text-xs font-medium text-foreground transition-colors hover:bg-muted"
-                >
-                  <IconToolsKitchen2 className="size-3.5 text-primary" />
-                  Menu
-                </button>
-
-                {cartCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setCheckoutStep("details")}
-                    className="flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 active:scale-[0.97]"
-                  >
-                    <IconShoppingCart className="size-3.5" />
-                    <span>{cartCount} {cartCount === 1 ? "item" : "items"}</span>
-                    <span className="opacity-75">·</span>
-                    <span>{formatMoney(cartTotal)}</span>
-                  </button>
-                )}
-
-                {restaurant.phone && (
-                  <a
-                    href={`tel:${restaurant.phone}`}
-                    className="flex h-9 items-center gap-1.5 rounded-full border bg-background px-4 text-xs font-medium text-foreground transition-colors hover:bg-muted"
-                  >
-                    <IconPhone className="size-3.5 text-muted-foreground" />
-                    Call Restaurant
-                  </a>
-                )}
-              </div>
-
-              {/* Status label below mic */}
-              {!voiceActive && voiceState !== "error" && (
-                <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                  {voiceUnavailable
-                    ? voiceUnavailableMessage
-                    : "Tap the microphone to start your voice order"}
-                </p>
-              )}
-              {voiceState === "error" && voiceError && (
-                <p className="mt-2 text-center text-xs text-destructive">{voiceError}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── RIGHT: Cart sidebar (desktop only) ──────────────────── */}
-        <aside className="hidden w-80 flex-col border-l bg-card lg:flex xl:w-96">
-          <CartSidebar
-            cart={cart}
-            cartCount={cartCount}
-            cartTotal={cartTotal}
-            photoMap={photoMap}
-            onIncrement={increment}
-            onDecrement={decrement}
-            onRemove={remove}
-            onCheckout={() => setCheckoutStep("details")}
-            onBrowseMenu={() => setMenuOpen(true)}
-          />
-        </aside>
+        <LiveVoicePanel
+          restaurantName={restaurant.name}
+          open={open}
+          nextOpen={nextOpen}
+          state={voiceState}
+          captions={messages.map((message) => ({
+            role: message.role === "ai" ? "assistant" : "user",
+            text: message.text,
+          }))}
+          error={voiceError}
+          disabled={voiceUnavailable}
+          cartCount={cartCount}
+          phone={restaurant.phone ?? null}
+          captionsActive={captionsActive}
+          onStart={startVoiceCall}
+          onMute={toggleMute}
+          onEnd={stopVoiceCall}
+          onToggleCaptions={() => setCaptionsActive((value) => !value)}
+          onMenu={() => setMenuOpen(true)}
+          onCart={() => setCheckoutStep("details")}
+        />
       </div>
 
       {/* ── Menu sheet ─────────────────────────────────────────────── */}
@@ -849,102 +682,68 @@ export default function PublicAiOrderPage() {
   );
 }
 
-// ─── Order Page Header ────────────────────────────────────────────────────────
+// ─── Voice Top Bar ────────────────────────────────────────────────────────────
 
-function OrderHeader({
+function VoiceTopBar({
   restaurantName,
   restaurantLogo,
-  open,
-  nextOpen,
-  phone,
   cartCount,
   onMenu,
   onCart,
 }: {
   restaurantName: string;
   restaurantLogo: string | null;
-  open: boolean;
-  nextOpen: string | null;
-  phone: string | null;
   cartCount: number;
   onMenu: () => void;
   onCart: () => void;
 }) {
   return (
-    <header className="shrink-0 border-b bg-card/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-3 px-4">
-
-        {/* Left: Restaurant identity */}
-        <div className="flex min-w-0 items-center gap-3">
-          {restaurantLogo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={restaurantLogo}
-              alt={restaurantName}
-              className="size-9 shrink-0 rounded-xl border object-cover shadow-sm"
-            />
-          ) : (
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border bg-primary/10">
-              <IconToolsKitchen2 className="size-4.5 text-primary" />
-            </div>
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold leading-tight">{restaurantName}</p>
-            <div className="flex items-center gap-1.5">
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  open ? "bg-emerald-500" : "bg-amber-400",
-                )}
-              />
-              <span className={cn("text-[11px] font-medium", open ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>
-                {open ? "Open now" : nextOpen ? `Opens ${nextOpen}` : "Closed"}
-              </span>
-            </div>
+    <header
+      className="flex shrink-0 items-center justify-between border-b bg-background/95 backdrop-blur-sm"
+      style={{ padding: "12px 16px" }}
+    >
+      {/* Left: Restaurant identity */}
+      <div className="flex min-w-0 items-center gap-2.5">
+        {restaurantLogo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={restaurantLogo}
+            alt={restaurantName}
+            className="size-7 shrink-0 rounded-lg border object-cover"
+          />
+        ) : (
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border bg-primary/10">
+            <IconToolsKitchen2 className="size-4 text-primary" />
           </div>
-        </div>
+        )}
+        <p className="truncate text-sm font-semibold leading-none">{restaurantName}</p>
+      </div>
 
-        {/* Right: Actions */}
-        <div className="flex shrink-0 items-center gap-2">
-          {/* Menu button — desktop only */}
-          <button
-            type="button"
-            onClick={onMenu}
-            className="hidden items-center gap-1.5 rounded-full border bg-background px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted md:flex"
-          >
-            <IconMenu2 className="size-3.5" />
-            Menu
-          </button>
-
-          {/* Phone — desktop only */}
-          {phone && (
-            <a
-              href={`tel:${phone}`}
-              className="hidden items-center gap-1.5 rounded-full border bg-background px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted md:flex"
-            >
-              <IconPhone className="size-3.5 text-muted-foreground" />
-              Call Restaurant
-            </a>
+      {/* Right: Utility actions */}
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onMenu}
+          aria-label="Browse menu"
+          className="flex items-center gap-1.5 rounded-full border bg-transparent px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+        >
+          <IconMenu2 className="size-3.5" />
+          Menu
+        </button>
+        <button
+          type="button"
+          onClick={onCart}
+          aria-label="Open cart"
+          className="relative flex size-8 items-center justify-center rounded-full border bg-transparent transition-colors hover:bg-muted"
+        >
+          <IconShoppingCart className="size-4" />
+          {cartCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex size-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold text-primary-foreground">
+              {cartCount > 9 ? "9+" : cartCount}
+            </span>
           )}
-
-          {/* Cart button — always visible */}
-          <button
-            type="button"
-            onClick={onCart}
-            className="relative flex size-9 items-center justify-center rounded-xl border bg-background transition-colors hover:bg-muted"
-            aria-label="Open cart"
-          >
-            <IconShoppingCart className="size-4" />
-            {cartCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex size-4.5 min-w-[1.125rem] items-center justify-center rounded-full bg-primary px-0.5 text-[10px] font-bold text-primary-foreground">
-                {cartCount > 9 ? "9+" : cartCount}
-              </span>
-            )}
-          </button>
-
-          {/* Theme toggle */}
-          <ThemeToggler className="size-9 rounded-xl" />
-        </div>
+        </button>
+        <ThemeToggler className="size-8 rounded-full" />
       </div>
     </header>
   );
@@ -1032,7 +831,7 @@ function MicButton({
   onStop,
   disabled,
 }: {
-  state: VoiceCallState;
+  state: SessionState;
   onStart: () => void;
   onStop: () => void;
   disabled?: boolean;
@@ -1043,7 +842,7 @@ function MicButton({
     state === "listening" ||
     state === "thinking";
 
-  const colorMap: Record<VoiceCallState, string> = {
+  const colorMap: Partial<Record<SessionState, string>> = {
     idle: "bg-primary text-primary-foreground shadow-primary/30 hover:bg-primary/90 hover:shadow-primary/40",
     connecting: "bg-muted text-muted-foreground shadow-black/10 cursor-wait",
     listening: "bg-rose-500 text-white shadow-rose-500/40 hover:bg-rose-600",
@@ -1074,7 +873,7 @@ function MicButton({
           aria-label={active ? "Stop voice order" : "Start voice order"}
           className={cn(
             "relative flex size-20 items-center justify-center rounded-full shadow-xl transition-all duration-200 active:scale-95 md:size-24",
-            colorMap[state],
+            colorMap[state] ?? colorMap.idle,
             (disabled && state === "idle") && "opacity-40 cursor-not-allowed",
           )}
         >
@@ -1109,7 +908,7 @@ function TranscriptChip({
   transcript,
   error,
 }: {
-  state: VoiceCallState;
+  state: SessionState;
   transcript: string;
   error: string | null;
 }) {

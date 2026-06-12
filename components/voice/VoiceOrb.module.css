@@ -1,0 +1,154 @@
+.pulseContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  --orb-color: var(--primary);
+}
+
+.connected {
+  min-height: clamp(250px, 40vh, 550px);
+}
+
+.disconnected {
+  justify-content: flex-end;
+  min-height: 160px;
+}
+
+/* ── Ring wrapper ── */
+.circleWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 244px;
+  height: 244px;
+}
+
+.circleWrapperIdle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 120px;
+}
+
+/* ── Concentric ring stack ── */
+.circleStack {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 244px;
+  height: 244px;
+}
+
+.circleOuter,
+.circleMid,
+.circleInner {
+  position: absolute;
+  border-radius: 9999px;
+  background: var(--orb-color);
+  transition: transform 400ms ease, opacity 400ms ease;
+}
+
+/* outer ring — 244px, 20% opacity */
+.circleOuter {
+  width: 244px;
+  height: 244px;
+  opacity: 0.20;
+}
+
+/* mid ring — 182px, 30% opacity */
+.circleMid {
+  width: 182px;
+  height: 182px;
+  opacity: 0.30;
+}
+
+/* inner ring — 138px, 33% opacity */
+.circleInner {
+  width: 138px;
+  height: 138px;
+  opacity: 0.33;
+}
+
+/* active core — 160px, 33% opacity, sits above rings */
+.circleBase {
+  position: relative;
+  z-index: 2;
+  width: 160px;
+  height: 160px;
+  border-radius: 9999px;
+  background: var(--orb-color);
+  opacity: 0.33;
+}
+
+/* idle circle — 120px, full opacity, no rings */
+.circleBaseIdle {
+  width: 120px;
+  height: 120px;
+  border-radius: 9999px;
+  background: var(--orb-color);
+}
+
+/* ── Listening: rings static at scale(1) ── */
+.stackListening .circleOuter,
+.stackListening .circleMid,
+.stackListening .circleInner {
+  transform: scale(1);
+}
+
+/* ── Speaking: rings pulse outward in staggered layers ── */
+.stackTalking .circleOuter {
+  opacity: calc(0.20 * 0.9);
+  animation: ring-talk-outer 1.2s ease-in-out infinite;
+}
+
+.stackTalking .circleMid {
+  opacity: calc(0.30 * 0.87);
+  animation: ring-talk-mid 1.2s ease-in-out infinite;
+}
+
+.stackTalking .circleInner {
+  opacity: 0.5;
+  animation: ring-talk-inner 1.2s ease-in-out infinite;
+}
+
+/* ── Listening: core breathes gently ── */
+.pulseListening {
+  animation: circle-pulse 1.8s ease-in-out infinite;
+}
+
+/* ── Captions active: hide orb to make room for transcript ── */
+.captionsActiveHidden .circleWrapper {
+  display: none;
+}
+
+/* ─── Keyframes ────────────────────────────────────────────── */
+
+@keyframes circle-pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+@keyframes ring-talk-outer {
+  0%   { transform: scale(0.96); }
+  50%  { transform: scale(1.04); }
+  100% { transform: scale(0.96); }
+}
+
+@keyframes ring-talk-mid {
+  0%   { transform: scale(1.02); }
+  50%  { transform: scale(0.96); }
+  100% { transform: scale(1.02); }
+}
+
+@keyframes ring-talk-inner {
+  0%   { transform: scale(0.98); }
+  50%  { transform: scale(1.05); }
+  100% { transform: scale(0.98); }
+}

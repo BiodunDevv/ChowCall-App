@@ -96,12 +96,15 @@ export type PublicOrderCheckoutResponse = {
 	paymentRequired?: boolean;
 };
 
-export type WebSpeechToken = {
-	token: string;
-	region: string;
-	endpoint: string;
-	expiresInSeconds: number;
-	voice: TenantVoiceSettings;
+export type LiveVoiceSessionResponse = {
+	sessionId: string;
+	tenantId: string;
+	orderingSessionId?: string | null;
+	agentName: string;
+	agentVersion: string;
+	connectionMode: "backend_proxy";
+	status: string;
+	foundryConfigured?: boolean;
 };
 
 type PublicResponse<T> = { data: T; tenant?: PublicTenant };
@@ -151,10 +154,14 @@ export const publicOrderingApi = {
 			`/v1/public-ordering/${tenantSlug}/chat/message`,
 			{ method: "POST", body: JSON.stringify(payload) },
 		),
-	webSpeechToken: (tenantSlug?: string) =>
-		publicFetch<PublicResponse<WebSpeechToken>>(
-			"/v1/voice/web-token",
-			{ method: "POST", body: JSON.stringify({ tenantSlug }) },
+	startLiveVoiceSession: (tenantSlug: string, payload?: { clientTimeZone?: string }) =>
+		publicFetch<PublicResponse<LiveVoiceSessionResponse>>(
+			`/v1/public-ordering/${tenantSlug}/live-voice/session`,
+			{ method: "POST", body: JSON.stringify(payload ?? {}) },
+		),
+	liveVoiceOrder: (tenantSlug: string, sessionId: string) =>
+		publicFetch<PublicResponse<{ session: LiveVoiceSessionResponse; order: PublicOrderSession | null }>>(
+			`/v1/public-ordering/${tenantSlug}/live-voice/session/${sessionId}/order`,
 		),
 	createOrder: (
 		tenantSlug: string,

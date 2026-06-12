@@ -11,7 +11,6 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api/client";
-import { publicOrderingApi } from "@/lib/public-ordering";
 import { toast } from "sonner";
 import { IconMicrophone, IconVolume } from "@tabler/icons-react";
 
@@ -75,30 +74,15 @@ export function PhoneSection() {
   async function testVoice() {
     setTesting(true);
     try {
-      const [{ data }, SpeechSDK] = await Promise.all([
-        publicOrderingApi.webSpeechToken(),
-        import("microsoft-cognitiveservices-speech-sdk"),
-      ]);
-      const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(data.token, data.region);
-      speechConfig.speechSynthesisVoiceName = speechVoiceName;
-      speechConfig.speechRecognitionLanguage = speechLanguage;
-      const synthesizer = new SpeechSDK.SpeechSynthesizer(
-        speechConfig,
-        SpeechSDK.AudioConfig.fromDefaultSpeakerOutput(),
+      if (!("speechSynthesis" in window)) {
+        throw new Error("Voice preview is not available in this browser.");
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(
+        welcomeMessage.trim() || "Welcome. What would you like to order today?",
       );
-      await new Promise<void>((resolve, reject) => {
-        synthesizer.speakTextAsync(
-          welcomeMessage.trim() || "Welcome. What would you like to order today?",
-          () => {
-            synthesizer.close();
-            resolve();
-          },
-          (error) => {
-            synthesizer.close();
-            reject(new Error(String(error || "Could not preview voice")));
-          },
-        );
-      });
+      utterance.lang = speechLanguage;
+      window.speechSynthesis.speak(utterance);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not preview voice");
     } finally {
