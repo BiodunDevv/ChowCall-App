@@ -1,6 +1,6 @@
 # ChowCall V1 — Product Requirements Document
 
-ChowCall is an AI ordering platform for restaurants. Each tenant restaurant gets a public landing page where customers can chat or call an AI to place orders.
+ChowCall is a web AI voice ordering platform for restaurants. Each tenant restaurant gets a public landing page where customers speak with an AI assistant in the browser to place paid orders.
 
 ---
 
@@ -13,7 +13,7 @@ ChowCall uses **path-based routing** — no `{slug}.chowcall.live` subdomains. A
 | Path | Purpose |
 |------|---------|
 | `/{tenantSlug}` | Public customer landing page for a restaurant |
-| `/order/{tenantSlug}` | AI chat/order interface |
+| `/order/{tenantSlug}` | Web AI voice ordering interface |
 | `/menu/{tenantSlug}` | Public menu page |
 | `/order/{tenantSlug}/status` | Secure order lookup by order ID plus token or phone |
 | `/order/{tenantSlug}/status/{orderId}` | Order tracking |
@@ -57,10 +57,10 @@ The public `/{tenantSlug}` page guards against these and redirects to `/` if mat
 
 ## Key features
 
-### AI Agent
-- Enabled **by default** for all new tenants
-- Core feature of ChowCall — handles calls, takes orders, logs to dashboard
-- Configurable instructions per tenant via Settings > AI Agent
+### AI Voice Ordering
+- Available to tenants with `subscriptionStatus: "active"`
+- Core feature of ChowCall — listens in the browser, speaks responses, takes orders, and logs to dashboard
+- Configurable greeting, voice, language, and instructions via Settings > AI Voice Ordering
 
 ### Public AI Page
 - Each tenant has a customizable public AI ordering page
@@ -69,27 +69,27 @@ The public `/{tenantSlug}` page guards against these and redirects to `/` if mat
 
 ### Public ordering flow
 1. Customer visits `/{tenantSlug}` or scans QR code
-2. Clicks "Order with AI Chat" → `/order/{tenantSlug}`
+2. Clicks "Start AI Voice Order" → `/order/{tenantSlug}`
 3. Backend AI ordering engine validates menu items, availability, fulfilment type, customer phone/name, and delivery address when needed
-4. Pricing is recalculated server-side with the same delivery/service-fee engines used by voice orders
+4. Pricing is recalculated server-side with the same delivery/service-fee engines used by all public orders
 5. Customer confirms the draft, receives a Paystack payment link, and can track only their own order by token or phone verification
 6. Kitchen receives ticket after verified payment unless pay-on-delivery is explicitly enabled
 
 ### Shared AI ordering engine
-- One backend module owns chat and voice session state, menu matching, sold-out handling, draft updates, pricing, payment readiness, and next-step decisions
-- Public chat calls and Twilio gather-mode voice calls use the same engine
+- One backend module owns voice session state, menu matching, sold-out handling, draft updates, pricing, payment readiness, and next-step decisions
+- Browser speech transcripts use the same backend engine; phone routing remains future scaffold only
 - AI can only add structured menu items that exist and are available
 - Payment is blocked until the order has items, fulfilment type, customer phone/name, delivery address for delivery, and server-side pricing
-- Azure OpenAI can enhance natural-language interpretation, but server-side tools remain the source of truth
+- Azure OpenAI enhances natural-language interpretation, but server-side menu validation, pricing, and payment readiness remain the source of truth
 
 ---
 
 ## Data model highlights
 
-- `Tenant` — restaurant config, public AI page, AI agent, subscription
-- `Order` — sources: voice, chat, web, dashboard, whatsapp; lifecycle includes `PAID` before kitchen ticket dispatch
+- `Tenant` — restaurant config, public AI page, AI voice settings, subscription
+- `Order` — sources: voice, web, dashboard, whatsapp; lifecycle includes `PAID` before kitchen ticket dispatch
 - `User` — platform roles (platform_owner, platform_admin) or tenant memberships
 - `MenuItem` — menu items per tenant
 - `Payment` — payment records (paidAt marks successful payment)
-- `ChatSession` / `VoiceSession` — tenant-scoped AI order draft state
+- `ChatSession` / `VoiceSession` — tenant-scoped AI order draft state for browser voice transcripts and future phone support
 - `KitchenTicket` — ticket send status, retry/resend metadata, and provider result

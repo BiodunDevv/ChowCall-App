@@ -20,7 +20,6 @@ import {
 	PaymentStep,
 	NotificationsStep,
 	EscalationStep,
-	PhoneStep,
 } from "@/components/onboarding/step-fields";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api/client";
@@ -52,7 +51,6 @@ const steps = [
 	["payment", "Paystack connection", ["provider"]],
 	["notifications", "Kitchen notifications", ["kitchenWhatsAppNumber"]],
 	["escalation", "Escalation contact", ["contact"]],
-	["phone", "Phone routing", ["routingNumber"]],
 ] as const;
 
 type StepKey = (typeof steps)[number][0];
@@ -74,7 +72,6 @@ const REQUIRED_FIELDS: Partial<Record<StepKey, string[]>> = {
 	location: ["address"],
 	delivery: ["baseFee", "perKmRate"],
 	payment: ["provider"],
-	phone: ["routingNumber"],
 };
 
 type TenantOnboarding = {
@@ -145,9 +142,6 @@ function mapTenantToForm(tenant: TenantResponse["data"]) {
 			asString(stepData.notifications?.kitchenWhatsAppNumber) ||
 			asString(tenant?.kitchenWhatsAppNumber),
 		contact: asString(stepData.escalation?.contact),
-		routingNumber:
-			asString(stepData.phone?.routingNumber) ||
-			asString(tenant?.voice?.routingNumber),
 	};
 }
 
@@ -187,7 +181,6 @@ function getValidationError(
 				baseFee: "base delivery fee",
 				perKmRate: "per-kilometre rate",
 				provider: "payment provider",
-				routingNumber: "routing number",
 			};
 			return `Please enter your ${labels[field] ?? field} to continue.`;
 		}
@@ -322,8 +315,8 @@ export function OnboardingPage() {
 						Your workspace is ready for review.
 					</h1>
 					<p className="mt-3 text-muted-foreground">
-						Review readiness checks, then connect your live phone and payment
-						credentials.
+						Review readiness checks, then connect your payment credentials and
+						voice ordering settings.
 					</p>
 					<Button
 						className="mt-6"
@@ -522,9 +515,6 @@ export function OnboardingPage() {
 					)}
 					{currentStepKey === "escalation" && (
 						<EscalationStep data={data} setData={setData} />
-					)}
-					{currentStepKey === "phone" && (
-						<PhoneStep data={data} setData={setData} />
 					)}
 				</div>
 

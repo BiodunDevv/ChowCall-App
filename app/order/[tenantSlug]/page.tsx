@@ -92,7 +92,7 @@ export default function PublicAiOrderPage() {
   const synthesizerRef = useRef<SpeechSynthesizer | null>(null);
   const speechSdkRef = useRef<SpeechSdkModule | null>(null);
   const speechConfigRef = useRef<ReturnType<SpeechSdkModule["SpeechConfig"]["fromAuthorizationToken"]> | null>(null);
-  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const transcriptBottomRef = useRef<HTMLDivElement>(null);
 
   // ── Menu sheet state
   const [menuOpen, setMenuOpen] = useState(false);
@@ -116,6 +116,10 @@ export default function PublicAiOrderPage() {
 
   const restaurant = menu.data?.tenant ?? null;
   const menuItems = menu.data?.data ?? [];
+  const voiceUnavailable = restaurant?.active === false || restaurant?.voice?.enabled === false;
+  const voiceUnavailableMessage = restaurant?.active === false
+    ? "AI voice ordering is available after this restaurant activates ChowCall."
+    : "AI voice ordering is not active for this restaurant right now.";
 
   // ── Photo lookup: id → url (populated once menu loads)
   const photoMap = useMemo(() => {
@@ -303,6 +307,11 @@ export default function PublicAiOrderPage() {
   }, []);
 
   const startVoiceCall = useCallback(async () => {
+    if (voiceUnavailable) {
+      setVoiceState("error");
+      setVoiceError(voiceUnavailableMessage);
+      return;
+    }
     if (voiceState === "connecting" || voiceState === "speaking" || voiceState === "listening" || voiceState === "thinking") return;
     setVoiceError(null);
     setLiveTranscript("");
@@ -390,13 +399,13 @@ export default function PublicAiOrderPage() {
       setVoiceError(error instanceof Error ? error.message : "Voice ordering is temporarily unavailable.");
       setVoiceState("error");
     }
-  }, [sessionId, speakText, startRecognizer, syncDraftSession, tenantSlug, voiceState]);
+  }, [sessionId, speakText, startRecognizer, syncDraftSession, tenantSlug, voiceState, voiceUnavailable, voiceUnavailableMessage]);
 
   useEffect(() => stopVoiceCall, [stopVoiceCall]);
 
-  // Scroll chat to bottom on new messages
+  // Keep the transcript pinned to the latest voice turn.
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    transcriptBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, liveTranscript, voiceState]);
 
   // ── Menu grouping
@@ -472,7 +481,7 @@ export default function PublicAiOrderPage() {
         onCartOpen={() => setCheckoutStep("details")}
       />
 
-      {/* Main: chat + cart side by side — fills remaining height */}
+      {/* Main: voice transcript + cart side by side */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
 
         {/* ── LEFT: AI voice order panel ───────────────────────── */}
@@ -504,7 +513,13 @@ export default function PublicAiOrderPage() {
               )
             )}
 
-            <div ref={chatBottomRef} />
+            {voiceUnavailable && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
+                {voiceUnavailableMessage} You can still view the menu or call the restaurant directly.
+              </div>
+            )}
+
+            <div ref={transcriptBottomRef} />
           </div>
 
           {/* Voice call bar */}
@@ -516,6 +531,8 @@ export default function PublicAiOrderPage() {
                 transcript={liveTranscript}
                 onStart={startVoiceCall}
                 onStop={stopVoiceCall}
+                disabled={voiceUnavailable}
+                disabledReason={voiceUnavailableMessage}
               />
               <button
                 type="button"
@@ -649,12 +666,16 @@ function VoiceCallControl({
   transcript,
   onStart,
   onStop,
+  disabled,
+  disabledReason,
 }: {
   state: VoiceCallState;
   error: string | null;
   transcript: string;
   onStart: () => void;
   onStop: () => void;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   const active = state === "connecting" || state === "speaking" || state === "listening" || state === "thinking";
   const status =
@@ -666,8 +687,10 @@ function VoiceCallControl({
         ? transcript || "Listening. Speak your order naturally."
         : state === "thinking"
           ? "Sending that to the ordering assistant..."
-          : state === "error"
-            ? error || "Voice ordering is temporarily unavailable."
+        : state === "error"
+          ? error || "Voice ordering is temporarily unavailable."
+          : disabled
+              ? disabledReason || "Voice ordering is not active for this restaurant right now."
             : "Talk to the ordering assistant.";
 
   return (
@@ -676,7 +699,7 @@ function VoiceCallControl({
         type="button"
         onClick={active ? onStop : onStart}
         className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-        disabled={state === "connecting"}
+        disabled={disabled || state === "connecting"}
         aria-label={active ? "End voice order" : "Start voice order"}
       >
         {state === "speaking" ? (
@@ -746,7 +769,7 @@ function CartSidebar({ cart, cartCount, cartTotal, photoMap, onIncrement, onDecr
           <div>
             <p className="text-sm font-medium">Your order is empty</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Chat with the AI or browse the menu to add dishes
+              Start a voice order or browse the menu to add dishes
             </p>
           </div>
           <Button onClick={onBrowseMenu} variant="outline" size="sm" className="rounded-full gap-1.5">

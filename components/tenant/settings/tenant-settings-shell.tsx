@@ -9,9 +9,8 @@ import {
   IconTruck,
   IconCurrencyDollar,
   IconCreditCard,
-  IconPhone,
   IconClock,
-  IconRobot,
+  IconMicrophone,
   IconWorld,
 } from "@tabler/icons-react";
 
@@ -63,9 +62,9 @@ export function TenantSettingsShell({ tenantSlug, children }: TenantSettingsShel
           icon: <IconCreditCard className="size-4" />,
         },
         {
-          label: "Phone System",
+          label: "AI Voice Ordering",
           href: `${base}/phone`,
-          icon: <IconPhone className="size-4" />,
+          icon: <IconMicrophone className="size-4" />,
         },
         {
           label: "Opening Hours",
@@ -81,11 +80,6 @@ export function TenantSettingsShell({ tenantSlug, children }: TenantSettingsShel
           label: "Public AI Page",
           href: `${base}/storefront`,
           icon: <IconWorld className="size-4" />,
-        },
-        {
-          label: "AI Agent",
-          href: `${base}/ai-agent`,
-          icon: <IconRobot className="size-4" />,
         },
       ],
     },

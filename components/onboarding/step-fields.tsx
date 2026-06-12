@@ -17,7 +17,6 @@ import {
 	IconPercentage,
 	IconBrandWhatsapp,
 	IconHeadphones,
-	IconDeviceMobile,
 	IconCreditCard,
 	IconToolsKitchen2,
 } from "@tabler/icons-react";
@@ -79,7 +78,7 @@ export function ProfileStep({
 					onChange={(e) => setData((d) => ({ ...d, name: e.target.value }))}
 				/>
 			</Field>
-			<Field label="Phone number" hint="Used for routing and staff notifications.">
+			<Field label="Phone number" hint="Your restaurant contact number for customers and staff notifications.">
 				<IconInput
 					icon={IconPhone}
 					placeholder="e.g. 08012345678"
@@ -420,47 +419,6 @@ export function EscalationStep({
 					value={data.contact ?? ""}
 					onChange={(e) =>
 						setData((d) => ({ ...d, contact: e.target.value }))
-					}
-				/>
-			</Field>
-		</div>
-	);
-}
-
-// ─── Step 10: Restaurant phone routing ────────────────────────────────────────
-
-export function PhoneStep({
-	data,
-	setData,
-}: {
-	data: StepData;
-	setData: SetData;
-}) {
-	return (
-		<div className="space-y-4">
-			<div className="flex items-center gap-3 rounded-xl border bg-card p-4">
-				<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-					<IconDeviceMobile className="size-5 text-primary" />
-				</div>
-				<div>
-					<p className="text-sm font-semibold">AI phone routing</p>
-					<p className="text-xs text-muted-foreground">
-						Calls to this number are answered by ChowCall&apos;s AI. It handles
-						ordering, payment, and sends the kitchen a paid ticket.
-					</p>
-				</div>
-			</div>
-			<Field
-				label="Routing number"
-				hint="The phone number customers call to order — this is what you give to customers."
-			>
-				<IconInput
-					icon={IconPhone}
-					placeholder="e.g. 08012345678"
-					type="tel"
-					value={data.routingNumber ?? ""}
-					onChange={(e) =>
-						setData((d) => ({ ...d, routingNumber: e.target.value }))
 					}
 				/>
 			</Field>

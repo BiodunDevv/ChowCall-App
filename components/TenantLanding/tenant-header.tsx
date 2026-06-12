@@ -5,7 +5,9 @@ import { ChowCallLogo } from "@/components/chowcall-logo";
 import { Button } from "@/components/ui/button";
 import { ThemeToggler } from "@/components/Landing/theme-toggler";
 import { useScroll } from "@/hooks/use-scroll";
-import { IconMessageCircle, IconPhoneCall, IconToolsKitchen2, IconShoppingCart } from "@tabler/icons-react";
+import { IconMicrophone, IconPhoneCall, IconToolsKitchen2, IconShoppingCart,
+  IconMessageCircle
+ } from "@tabler/icons-react";
 
 type TenantHeaderProps = {
   restaurantName: string;
@@ -70,14 +72,14 @@ export function TenantHeader(props: TenantHeaderProps) {
             <Button asChild size="sm" variant="outline" className="gap-1.5">
               <a href={`tel:${props.phone}`}>
                 <IconPhoneCall className="size-3.5" />
-                Call to Order
+                Call Restaurant
               </a>
             </Button>
           )}
           <Button asChild size="sm" className="gap-1.5 rounded-full">
             <a href={props.orderHref}>
-              <IconMessageCircle className="size-3.5" />
-              Order with AI
+              <IconMicrophone className="size-3.5" />
+              Voice Order
             </a>
           </Button>
           {props.onCartOpen && (

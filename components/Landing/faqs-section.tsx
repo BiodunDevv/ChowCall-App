@@ -8,9 +8,9 @@ import {
 const questions = [
   {
     id: "q1",
-    title: "Can we keep our existing restaurant number?",
+    title: "Do customers need to download an app?",
     content:
-      "Yes. You forward your current number to a ChowCall routing number. Customers keep calling the same number they already know and ChowCall answers it with your custom greeting.",
+      "No. Customers open your ChowCall ordering link in the browser, tap the voice button, and speak their order. You can still show your normal restaurant phone number for customers who want to call your staff.",
   },
   {
     id: "q2",
@@ -44,9 +44,9 @@ const questions = [
   },
   {
     id: "q7",
-    title: "What happens when my call minutes run out?",
+    title: "What happens if voice ordering is not active?",
     content:
-      "You can configure your quota exhaustion behaviour: auto-bill overage, switch to message-taking mode, forward calls to staff, or temporarily pause AI answering. The system never leaves callers in dead air.",
+      "Your public page and menu can still load, but customers cannot start AI voice ordering until the restaurant has an active ChowCall subscription.",
   },
 ];
 

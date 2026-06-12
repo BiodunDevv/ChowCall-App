@@ -1,9 +1,9 @@
 const steps = [
   {
     number: "01",
-    title: "Chat or call the AI",
+    title: "Start a voice order",
     description:
-      "Open AI chat or call the restaurant. The AI greets you, asks whether you want pickup or delivery, and takes your full order.",
+      "Tap the voice button, hear the restaurant greeting, and speak your order naturally.",
   },
   {
     number: "02",
@@ -27,7 +27,7 @@ export function TenantHowItWorks() {
           How it works
         </div>
         <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Order in minutes. Not calls.
+          Order in minutes.
         </h2>
         <p className="mt-4 max-w-xl text-muted-foreground">
           No waiting on hold. No confused staff. The AI handles your order start to finish — then the kitchen gets to work.

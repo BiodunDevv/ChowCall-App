@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api/client";
 import { publicOrderingApi } from "@/lib/public-ordering";
 import { toast } from "sonner";
@@ -23,8 +24,9 @@ type VoiceOption = {
 
 export function PhoneSection() {
   const [enabled, setEnabled] = useState(true);
-  const [routingNumber, setRoutingNumber] = useState("");
+  const [phone, setPhone] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [instructions, setInstructions] = useState("");
   const [speechVoiceName, setSpeechVoiceName] = useState("en-NG-EzinneNeural");
   const [speechLanguage, setSpeechLanguage] = useState("en-NG");
   const [voices, setVoices] = useState<VoiceOption[]>([]);
@@ -32,11 +34,12 @@ export function PhoneSection() {
   const [testing, setTesting] = useState(false);
 
   useEffect(() => {
-    api<{ data?: { enabled?: boolean; routingNumber?: string; greeting?: string; speechVoiceName?: string; speechLanguage?: string } }>("/v1/tenants/current/phone")
+    api<{ data?: { enabled?: boolean; phone?: string; greeting?: string; instructions?: string; speechVoiceName?: string; speechLanguage?: string } }>("/v1/tenants/current/phone")
       .then((res) => {
         setEnabled(res.data?.enabled !== false);
-        if (res.data?.routingNumber) setRoutingNumber(res.data.routingNumber);
+        if (res.data?.phone) setPhone(res.data.phone);
         if (res.data?.greeting) setWelcomeMessage(res.data.greeting);
+        if (res.data?.instructions) setInstructions(res.data.instructions);
         if (res.data?.speechVoiceName) setSpeechVoiceName(res.data.speechVoiceName);
         if (res.data?.speechLanguage) setSpeechLanguage(res.data.speechLanguage);
       })
@@ -53,8 +56,9 @@ export function PhoneSection() {
         method: "PATCH",
         body: JSON.stringify({
           enabled,
-          routingNumber,
+          phone,
           welcomeMessage,
+          instructions,
           speechVoiceName,
           speechVoiceStyle: "friendly",
           speechLanguage,
@@ -110,7 +114,7 @@ export function PhoneSection() {
           AI Voice Ordering
         </CardTitle>
         <CardDescription>
-          Configure the voice customers hear on the public ordering page.
+          Configure the web voice assistant customers hear on the public ordering page.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -125,6 +129,19 @@ export function PhoneSection() {
         </div>
 
         <div className="space-y-1.5">
+          <Label>Restaurant phone number</Label>
+          <Input
+            type="tel"
+            placeholder="e.g. 08012345678"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Shown as your direct contact number for customers who prefer to call your staff.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
           <Label>Welcome message</Label>
           <Input
             placeholder="Welcome to {restaurant name}. What would you like to order today?"
@@ -133,6 +150,19 @@ export function PhoneSection() {
           />
           <p className="text-xs text-muted-foreground">
             This is spoken when a customer starts a voice order.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Voice assistant instructions</Label>
+          <Textarea
+            rows={4}
+            placeholder="Example: greet customers warmly, suggest zobo with rice meals, confirm spice level, and ask a follow-up question when an order is unclear."
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Used by the assistant when it understands orders, suggests add-ons, or asks follow-up questions.
           </p>
         </div>
 
@@ -164,19 +194,6 @@ export function PhoneSection() {
               {testing ? "Playing..." : "Preview"}
             </Button>
           </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Routing number</Label>
-          <Input
-            type="tel"
-            placeholder="Phone routing is paused for now"
-            value={routingNumber}
-            onChange={(e) => setRoutingNumber(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Optional for now. Web voice ordering works without a phone number.
-          </p>
         </div>
 
         <div className="flex justify-end">

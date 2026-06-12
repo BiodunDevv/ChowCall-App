@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { IconArrowRight, IconMessageCircle } from "@tabler/icons-react";
+import { IconArrowRight, IconMicrophone } from "@tabler/icons-react";
 import { PhoneCallIcon } from "lucide-react";
 import { FullWidthDivider } from "@/components/Landing/full-width-divider";
 
@@ -21,7 +21,7 @@ export function TenantCta({ restaurantName, orderHref, callHref, phone }: Tenant
               Ready to order from {restaurantName}?
             </h2>
             <p className="text-balance text-center text-muted-foreground text-sm md:text-base">
-              Chat with our AI assistant or call to place your order. It only takes a minute.
+              Speak with the AI assistant online, or call the restaurant directly if you prefer.
             </p>
           </div>
           <div className="flex flex-col items-center gap-3 sm:flex-row">
@@ -29,14 +29,14 @@ export function TenantCta({ restaurantName, orderHref, callHref, phone }: Tenant
               <Button asChild variant="secondary" size="lg" className="rounded-full gap-2 shadow">
                 <a href={callHref}>
                   <PhoneCallIcon className="size-4" />
-                  Call to Order
+                  Call Restaurant
                 </a>
               </Button>
             )}
             <Button asChild size="lg" className="rounded-full gap-2 shadow">
               <a href={orderHref}>
-                <IconMessageCircle className="size-4" />
-                Order Food with AI Chat
+                <IconMicrophone className="size-4" />
+                Start AI Voice Order
                 <IconArrowRight className="size-4" />
               </a>
             </Button>

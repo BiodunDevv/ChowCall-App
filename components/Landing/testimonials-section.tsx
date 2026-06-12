@@ -13,7 +13,7 @@ type Testimonial = {
 const testimonials: Testimonial[] = [
   {
     quote:
-      "Before ChowCall, lunch rush was chaotic. Calls were missed, staff were distracted from the kitchen, and delivery fees were guessed. Now every call is answered, the fee is always right, and we only cook after payment. Biggest change in how we run orders.",
+      "Before ChowCall, lunch rush was chaotic. Staff were distracted from the kitchen and delivery fees were guessed. Now customers speak their orders online, the fee is always right, and we only cook after payment. Biggest change in how we run orders.",
     name: "Chidinma Okeke",
     role: "Cloud kitchen owner",
     company: "Lagos, Lekki",
@@ -27,7 +27,7 @@ const testimonials: Testimonial[] = [
   },
   {
     quote:
-      "I used to miss orders every weekend because I was attending to tables. ChowCall handles all the phone orders on its own. It even sends the kitchen the ticket after payment. My staff are less stressed and we're serving more covers per shift.",
+      "I used to lose orders every weekend because I was attending to tables. ChowCall handles the voice ordering flow online and sends the kitchen the ticket after payment. My staff are less stressed and we're serving more covers per shift.",
     name: "Ifeoma Nwosu",
     role: "Food business owner",
     company: "Port Harcourt, GRA",

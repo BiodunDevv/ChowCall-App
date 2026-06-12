@@ -30,9 +30,9 @@ export function Footer() {
         <div className="col-span-6 flex flex-col gap-4 pt-5 md:col-span-4">
           <ChowCallLogo className="w-max font-semibold" />
           <p className="max-w-sm text-balance text-muted-foreground text-sm">
-            The AI phone ordering platform that answers restaurant calls,
-            calculates delivery fees, collects payment, and sends the kitchen
-            a paid order ticket.
+            Web AI voice ordering for restaurants. Customers speak, ChowCall
+            checks the menu, prices the order, collects payment, and sends the
+            kitchen a paid ticket.
           </p>
           <div className="flex gap-2">
             <Button asChild size="sm" variant="outline">

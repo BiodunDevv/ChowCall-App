@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { IconMessageCircle, IconToolsKitchen2, IconCircleCheck, IconCircleX, IconArrowRight } from "@tabler/icons-react";
+import { IconMicrophone, IconToolsKitchen2, IconCircleCheck, IconCircleX, IconArrowRight } from "@tabler/icons-react";
 import { formatMoney, type PublicMenuItem } from "@/lib/public-ordering";
 
 type TenantMenuPreviewProps = {
@@ -25,7 +25,7 @@ export function TenantMenuPreview({ items, orderHref, menuHref, show }: TenantMe
           What&apos;s on the menu?
         </h2>
         <p className="mt-4 max-w-xl text-muted-foreground">
-          A quick look at what we&apos;re serving. Chat with our AI to build your full order.
+          A quick look at what we&apos;re serving. Start a voice order when you&apos;re ready.
         </p>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -79,8 +79,8 @@ export function TenantMenuPreview({ items, orderHref, menuHref, show }: TenantMe
                     <p className="text-lg font-bold">{formatMoney(item.basePrice)}</p>
                     <Button asChild size="sm" variant="outline" className="gap-1.5 rounded-full">
                       <a href={orderHref}>
-                        <IconMessageCircle className="size-3.5" />
-                        Order with AI
+                        <IconMicrophone className="size-3.5" />
+                        Start voice order
                       </a>
                     </Button>
                   </div>

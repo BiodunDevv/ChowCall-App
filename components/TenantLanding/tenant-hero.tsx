@@ -8,7 +8,7 @@ import { ArrowRightIcon } from "lucide-react";
 import {
   IconCircleCheck,
   IconCircleX,
-  IconMessageCircle,
+  IconMicrophone,
   IconPhoneCall,
   IconToolsKitchen2,
   IconTruck,
@@ -39,7 +39,7 @@ export function TenantHero({
     `Order from ${restaurantName} with ChowCall AI.`;
 
   const description = restaurant.description?.trim() ||
-    `Call or chat with our AI assistant to place your food order, confirm delivery details, pay securely, and send your order straight to the kitchen.`;
+    `Speak with our AI assistant online to place your food order, confirm delivery details, pay securely, and send your order straight to the kitchen.`;
 
   // Hero screen image: use tenant hero image first, then cover image.
   const lightImg = restaurant.heroImageLightUrl || restaurant.coverImageUrl || null;
@@ -156,14 +156,14 @@ export function TenantHero({
             <Button asChild variant="outline">
               <a href={callHref}>
                 <IconPhoneCall data-icon="inline-start" />
-                Call to Order
+                Call Restaurant
               </a>
             </Button>
           )}
           <Button asChild>
             <a href={orderHref}>
-              <IconMessageCircle data-icon="inline-start" />
-              Order with AI
+              <IconMicrophone data-icon="inline-start" />
+              Start AI Voice Order
               <ArrowRightIcon data-icon="inline-end" />
             </a>
           </Button>

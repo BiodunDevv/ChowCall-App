@@ -17,7 +17,7 @@ const trustPoints = [
     icon: IconReceipt,
     title: "Kitchen receives paid tickets only",
     description:
-      "Your order is only forwarded to the kitchen after payment is confirmed. No payment, no order prep.",
+      "Your order ticket is only sent to the kitchen after payment is confirmed. No payment, no order prep.",
   },
   {
     icon: IconTruck,

@@ -1,5 +1,5 @@
 import {
-  IconPhoneCall,
+  IconMicrophone,
   IconToolsKitchen3,
   IconRoute,
   IconCreditCard,
@@ -12,10 +12,10 @@ import {
 
 const features = [
   {
-    icon: IconPhoneCall,
-    title: "AI phone orders",
+    icon: IconMicrophone,
+    title: "Web voice orders",
     description:
-      "Answers calls with your restaurant greeting, understands Nigerian English and Pidgin, and captures each order clearly.",
+      "Customers tap to speak, hear your greeting, and place orders naturally in Nigerian English and Pidgin.",
   },
   {
     icon: IconToolsKitchen3,
@@ -45,13 +45,13 @@ const features = [
     icon: IconChartBar,
     title: "Restaurant analytics",
     description:
-      "Tracks call orders, revenue, delivery fees collected, payment completion rates, and operational performance across your menu and fulfilment types.",
+      "Tracks AI voice orders, revenue, delivery fees collected, payment completion rates, and operational performance across your menu and fulfilment types.",
   },
   {
     icon: IconBell,
     title: "Live confirm",
     description:
-      "Pauses the call and pings a manager on WhatsApp for custom orders, out-of-radius delivery, refunds, or anything that needs approval.",
+      "Pauses the order and pings a manager on WhatsApp for custom requests, out-of-radius delivery, refunds, or anything that needs approval.",
   },
   {
     icon: IconShieldCheck,
@@ -76,7 +76,7 @@ export function FeaturesSection() {
             Features
           </div>
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Calls, payment, and order tickets handled.
+            Voice orders, payment, and kitchen tickets handled.
           </h2>
           <p className="mt-4 text-muted-foreground">
             ChowCall is not a generic AI assistant. It is a complete
