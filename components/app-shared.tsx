@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import {
   IconLayoutGrid,
   IconShoppingCart,
-  IconPhone,
+  IconMicrophone,
   IconCheckbox,
   IconToolsKitchen2,
   IconPackage,
@@ -12,7 +12,6 @@ import {
   IconCurrencyDollar,
   IconCreditCard,
   IconRobot,
-  IconPhoneCall,
   IconClock,
   IconUsers,
   IconAlertTriangle,
@@ -65,9 +64,9 @@ export const tenantNavGroups: SidebarNavGroup[] = [
         icon: <IconShoppingCart />,
       },
       {
-        title: "Calls",
+        title: "Voice Orders",
         path: "/calls",
-        icon: <IconPhone />,
+        icon: <IconMicrophone />,
       },
       {
         title: "Live Confirm",
@@ -175,9 +174,9 @@ export const superAdminNavGroups: SidebarNavGroup[] = [
         icon: <IconShoppingCart />,
       },
       {
-        title: "Calls",
+        title: "Voice Orders",
         path: "/super-admin/calls",
-        icon: <IconPhone />,
+        icon: <IconMicrophone />,
       },
     ],
   },
@@ -210,7 +209,7 @@ export const superAdminNavGroups: SidebarNavGroup[] = [
         icon: <IconServer />,
       },
       {
-        title: "Routing Numbers",
+        title: "Voice Channels",
         path: "/super-admin/routing",
         icon: <IconRoute />,
       },
@@ -311,11 +310,7 @@ export const footerNavLinks: SidebarNavItem[] = [
     path: "#/help",
     icon: <IconHelpCircle />,
   },
-  {
-    title: "Documentation",
-    path: "#/documentation",
-    icon: <IconBook />,
-  },
+  
 ];
 
 // ─── Legacy export (used by app-header breadcrumbs) ──────────────────────────

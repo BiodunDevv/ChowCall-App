@@ -396,18 +396,18 @@ function PaymentSentScreen() {
       <CallBar subtitle="Awaiting payment" time="3:02" />
       <Divider />
       <div style={{ flex: 1, overflowY: "hidden", padding: "10px 0 6px", display: "flex", flexDirection: "column", gap: "8px" }}>
-        <AiBubble text="Payment link sent via SMS. You have 15 minutes to complete payment." />
-        {/* SMS preview */}
+        <AiBubble text="Payment link sent to your email. You have 15 minutes to complete payment." />
+        {/* Email preview */}
         <div style={{ margin: "0 10px", borderRadius: "10px", border: `1px solid rgba(255,255,255,0.06)`, background: SURFACE, padding: "8px 10px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
-            <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "rgba(34,197,94,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px" }}>💬</div>
+            <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "rgba(99,102,241,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px" }}>✉️</div>
             <div>
-              <p style={{ fontSize: "8px", fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>SMS · ChowCall</p>
+              <p style={{ fontSize: "8px", fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>Email · ChowCall</p>
               <p style={{ fontSize: "7px", color: "rgba(255,255,255,0.28)" }}>just now</p>
             </div>
           </div>
           <p style={{ fontSize: "8.5px", lineHeight: 1.6, color: "rgba(255,255,255,0.7)" }}>
-            Pay ₦14,060 for Mama&apos;s Kitchen:{" "}
+            Complete your Mama&apos;s Kitchen order payment — ₦14,060:{" "}
             <span style={{ color: PRIMARY, textDecoration: "underline" }}>pay.chowcall.ng/cc-1048</span>
             {" "}· Expires 15 min
           </p>
@@ -490,7 +490,7 @@ function KitchenTicketScreen() {
             </div>
           </div>
           <div style={{ background: `${PRIMARY}12`, padding: "7px 10px", textAlign: "center" }}>
-            <p style={{ fontSize: "8px", fontWeight: 600, color: PRIMARY }}>✓ Sent to kitchen WhatsApp</p>
+            <p style={{ fontSize: "8px", fontWeight: 600, color: PRIMARY }}>✓ Receipt emailed · Kitchen ticket sent</p>
           </div>
         </div>
       </div>

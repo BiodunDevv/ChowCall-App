@@ -44,9 +44,8 @@ export function HeroSection() {
 					href="/auth/signup"
 				>
 					<RocketIcon className="size-3 text-muted-foreground" />
-					<span className="text-xs">Web AI voice ordering for restaurants</span>
+					<span className="text-xs">AI-powered ordering for Nigerian restaurants</span>
 					<span className="block h-5 border-l" />
-
 					<ArrowRightIcon className="size-3 duration-150 ease-out group-hover:translate-x-1" />
 				</a>
 
@@ -56,11 +55,11 @@ export function HeroSection() {
 						"text-shadow-[0_0px_50px_theme(--color-foreground/.2)]"
 					)}
 				>
-					Every spoken order. <br /> Handled.
+					Your restaurant, <br /> powered by AI.
 				</h1>
 
 				<p className="fade-in slide-in-from-bottom-10 mx-auto px-4 max-w-2xl animate-in fill-mode-backwards text-center text-sm text-foreground/80 tracking-wider delay-200 duration-500 ease-out sm:text-lg md:text-xl">
-					ChowCall lets customers speak their food order online. The AI checks your real menu, calculates delivery and service fees, collects payment, and sends paid tickets to the kitchen.
+					Voice orders, web ordering, instant email receipts, and kitchen tickets — ChowCall handles the full order flow so your team can focus on the food.
 				</p>
 
 				<div className="fade-in slide-in-from-bottom-10 flex animate-in flex-row flex-wrap items-center justify-center gap-3 fill-mode-backwards pt-2 delay-300 duration-500 ease-out">

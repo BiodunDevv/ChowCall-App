@@ -31,15 +31,15 @@ const features = [
   },
   {
     icon: IconCreditCard,
-    title: "Payment links",
+    title: "Email payment links",
     description:
-      "Sends Paystack payment links by SMS or WhatsApp, tracks expiry, and confirms payment before the ticket is released.",
+      "Sends Paystack or Flutterwave payment links directly to the customer's email, tracks expiry, and confirms payment before the kitchen ticket is released.",
   },
   {
     icon: IconReceipt,
-    title: "Paid order tickets",
+    title: "Email receipts",
     description:
-      "Sends structured tickets with items, notes, delivery address, map link, and total breakdown so teams can move quickly.",
+      "Automatically emails a detailed receipt to the customer after payment confirms — order total, items, and fulfilment details, all in one clean email.",
   },
   {
     icon: IconChartBar,
@@ -49,9 +49,9 @@ const features = [
   },
   {
     icon: IconBell,
-    title: "Live confirm",
+    title: "Live order dashboard",
     description:
-      "Pauses the order and pings a manager on WhatsApp for custom requests, out-of-radius delivery, refunds, or anything that needs approval.",
+      "Kitchen staff see real-time orders with status progression, auto-refresh every 30 seconds, and one-tap status updates from any device.",
   },
   {
     icon: IconShieldCheck,
@@ -63,7 +63,7 @@ const features = [
     icon: IconUsers,
     title: "Multi-staff access",
     description:
-      "Give kitchen staff, managers, and admins role-based access. Staff can mark items sold out via WhatsApp commands or the dashboard in seconds.",
+      "Give kitchen staff, managers, and admins role-based access. Staff can update inventory, manage orders, and monitor the restaurant from the dashboard.",
   },
 ] as const;
 
@@ -76,12 +76,12 @@ export function FeaturesSection() {
             Features
           </div>
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Voice orders, payment, and kitchen tickets handled.
+            Voice, web, payment, and receipts — all handled.
           </h2>
           <p className="mt-4 text-muted-foreground">
             ChowCall is not a generic AI assistant. It is a complete
             restaurant-ordering system built for how Nigerian restaurants
-            actually work.
+            actually operate — from spoken order to paid kitchen ticket.
           </p>
         </div>
 

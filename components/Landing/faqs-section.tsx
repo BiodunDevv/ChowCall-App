@@ -34,7 +34,7 @@ const questions = [
     id: "q5",
     title: "Can staff mark items as sold out?",
     content:
-      'Yes. Kitchen staff and managers can toggle availability from the dashboard or send WhatsApp commands like "asun don finish" or "make jollof available" and ChowCall updates instantly.',
+      'Yes. Kitchen staff and managers can toggle availability directly from the ChowCall dashboard in seconds — items update instantly across the AI ordering system.',
   },
   {
     id: "q6",

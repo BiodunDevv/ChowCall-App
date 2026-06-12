@@ -8,11 +8,11 @@ export function CtaSection() {
         <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center justify-between gap-y-6 rounded-2xl border bg-card px-6 py-10 shadow-sm md:py-12 dark:bg-card/50">
           <div className="space-y-3 text-center">
             <h2 className="text-balance font-bold text-2xl tracking-tight md:text-3xl">
-              Stop losing paid orders to missed calls.
+              AI ordering, payments, and receipts — out of the box.
             </h2>
             <p className="text-balance text-center text-muted-foreground text-sm md:text-base">
-              Create your workspace and configure ChowCall around your
-              restaurant. Keep your number. Start taking paid orders 24/7.
+              Set up your workspace, add your menu, and start taking paid AI voice and web orders today.
+              Payment links and receipts go straight to your customers&apos; email.
             </p>
           </div>
           <div className="flex flex-col items-center gap-3 sm:flex-row">

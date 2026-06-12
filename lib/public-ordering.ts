@@ -156,7 +156,15 @@ export const publicOrderingApi = {
 			"/v1/voice/web-token",
 			{ method: "POST", body: JSON.stringify({ tenantSlug }) },
 		),
-	createOrder: (tenantSlug: string, payload: { sessionId: string; customer?: unknown }) =>
+	createOrder: (
+		tenantSlug: string,
+		payload: {
+			sessionId: string;
+			customer?: unknown;
+			items?: PublicOrderItem[];
+			fulfilmentType?: "pickup" | "delivery";
+		},
+	) =>
 		publicFetch<PublicResponse<PublicOrderCheckoutResponse>>(
 			`/v1/public-ordering/${tenantSlug}/orders`,
 			{ method: "POST", body: JSON.stringify(payload) },
