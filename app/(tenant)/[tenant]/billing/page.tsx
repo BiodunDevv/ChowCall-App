@@ -106,7 +106,7 @@ export default function BillingPage() {
       </div>
 
       {/* Subscription card */}
-      <div className="mb-6 flex flex-col gap-3 rounded-2xl border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex flex-col gap-3 rounded-2xl border bg-background p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
             <IconCreditCard className="size-5 text-primary" />
@@ -136,7 +136,7 @@ export default function BillingPage() {
           { label: "Today's revenue", value: balanceLoading ? null : formatMoney(balance?.todayRevenue ?? 0), icon: IconCalendar },
           { label: "Pending today", value: balanceLoading ? null : String(balance?.pendingToday ?? 0), icon: IconClock },
         ].map((stat) => (
-          <div key={stat.label} className="flex flex-col gap-3 rounded-2xl border bg-card p-5">
+          <div key={stat.label} className="flex flex-col gap-3 rounded-2xl border bg-background p-5">
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{stat.label}</p>
               <stat.icon className="size-4 text-muted-foreground" />
@@ -151,7 +151,7 @@ export default function BillingPage() {
       </div>
 
       {/* Payment history */}
-      <div className="rounded-2xl border bg-card">
+      <div className="rounded-2xl border bg-background">
         <div className="flex items-center justify-between border-b px-5 py-4">
           <h2 className="font-semibold">Payment history</h2>
           <p className="text-xs text-muted-foreground">Last 100 transactions</p>

@@ -637,7 +637,7 @@ function MenuItemCard({
   const isConfirming = confirmDeleteId === item._id;
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border bg-card transition-shadow hover:shadow-sm">
+    <article className="group flex flex-col overflow-hidden rounded-xl border bg-background transition-shadow hover:shadow-sm">
       {/* Photo */}
       <div className="relative h-36 w-full shrink-0 bg-muted">
         {photo ? (

@@ -117,8 +117,9 @@ export default function PublicAiOrderPage() {
   const socketRef = useRef<WebSocket | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const playbackAudioContextRef = useRef<AudioContext | null>(null);
   const playbackNodeRef = useRef<AudioWorkletNode | null>(null);
-  const fallbackSpeechTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const canSendVoiceAudioRef = useRef(false);
   const transcriptBottomRef = useRef<HTMLDivElement>(null);
 
   // ── Menu sheet state
@@ -322,15 +323,15 @@ export default function PublicAiOrderPage() {
   }, [restaurant, sessionId, syncDraftSession, tenantSlug]);
 
   const stopVoiceCall = useCallback(() => {
-    if (fallbackSpeechTimerRef.current) clearTimeout(fallbackSpeechTimerRef.current);
-    fallbackSpeechTimerRef.current = null;
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    canSendVoiceAudioRef.current = false;
     // Stop playback worklet
     playbackNodeRef.current?.port.postMessage(null);
     playbackNodeRef.current = null;
     // Close audio context (also stops capture worklet)
     audioContextRef.current?.close();
     audioContextRef.current = null;
+    playbackAudioContextRef.current?.close();
+    playbackAudioContextRef.current = null;
     // Stop mic stream
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     mediaStreamRef.current = null;
@@ -344,25 +345,7 @@ export default function PublicAiOrderPage() {
     setVoiceState("ended");
   }, []);
 
-  const queueFallbackSpeech = useCallback((text: string) => {
-    if (fallbackSpeechTimerRef.current) clearTimeout(fallbackSpeechTimerRef.current);
-    fallbackSpeechTimerRef.current = setTimeout(() => {
-      if (!("speechSynthesis" in window) || !text.trim()) return;
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-NG";
-      utterance.rate = 1;
-      utterance.onend = () => {
-        setVoiceState((current) => (current === "speaking" ? "listening" : current));
-      };
-      window.speechSynthesis.speak(utterance);
-    }, 650);
-  }, []);
-
   const playPcmAudio = useCallback((base64Audio: string) => {
-    if (fallbackSpeechTimerRef.current) clearTimeout(fallbackSpeechTimerRef.current);
-    fallbackSpeechTimerRef.current = null;
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     const binary = atob(base64Audio);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -405,21 +388,21 @@ export default function PublicAiOrderPage() {
       setLiveVoiceSessionId(data.sessionId);
       if (data.orderingSessionId) setSessionId(data.orderingSessionId);
 
-      // AudioContext at 16kHz — matches Nova Sonic PCM16 input format.
-      const audioCtx = new AudioContext({ sampleRate: 16000 });
-      audioContextRef.current = audioCtx;
+      const captureAudioCtx = new AudioContext({ sampleRate: 16000 });
+      const playbackAudioCtx = new AudioContext({ sampleRate: 24000 });
+      audioContextRef.current = captureAudioCtx;
+      playbackAudioContextRef.current = playbackAudioCtx;
       // Resume immediately — browsers suspend AudioContext until user gesture
-      if (audioCtx.state === "suspended") await audioCtx.resume();
+      if (captureAudioCtx.state === "suspended") await captureAudioCtx.resume();
+      if (playbackAudioCtx.state === "suspended") await playbackAudioCtx.resume();
 
-      // Load both worklets
       await Promise.all([
-        audioCtx.audioWorklet.addModule("/audio-capture-worklet.js"),
-        audioCtx.audioWorklet.addModule("/audio-playback-worklet.js"),
+        captureAudioCtx.audioWorklet.addModule("/audio-capture-worklet.js"),
+        playbackAudioCtx.audioWorklet.addModule("/audio-playback-worklet.js"),
       ]);
 
-      // Playback worklet — queues and plays Int16 PCM frames from Azure
-      const playbackNode = new AudioWorkletNode(audioCtx, "audio-playback-processor");
-      playbackNode.connect(audioCtx.destination);
+      const playbackNode = new AudioWorkletNode(playbackAudioCtx, "audio-playback-processor");
+      playbackNode.connect(playbackAudioCtx.destination);
       playbackNodeRef.current = playbackNode;
 
       const socket = new WebSocket(liveVoiceWsUrl(tenantSlug, data.sessionId));
@@ -428,14 +411,12 @@ export default function PublicAiOrderPage() {
       socket.onopen = () => {
         socket.send(JSON.stringify({ type: "start_session" }));
 
-        // Capture worklet — converts Float32 mic input → Int16 PCM → base64 → WebSocket
-        // Buffer 100ms (2400 samples at 24kHz) before sending to reduce WebSocket message rate
-        const source = audioCtx.createMediaStreamSource(stream);
-        const captureNode = new AudioWorkletNode(audioCtx, "audio-capture-processor");
-        let captureBuf = new Int16Array(2400);
+        const source = captureAudioCtx.createMediaStreamSource(stream);
+        const captureNode = new AudioWorkletNode(captureAudioCtx, "audio-capture-processor");
+        let captureBuf = new Int16Array(1600);
         let captureOffset = 0;
         captureNode.port.onmessage = (e: MessageEvent<{ buffer: ArrayBuffer }>) => {
-          if (socket.readyState !== WebSocket.OPEN) return;
+          if (socket.readyState !== WebSocket.OPEN || !canSendVoiceAudioRef.current) return;
           const chunk = new Int16Array(e.data.buffer);
           let chunkOffset = 0;
           while (chunkOffset < chunk.length) {
@@ -449,7 +430,7 @@ export default function PublicAiOrderPage() {
               let binary = "";
               for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
               socket.send(JSON.stringify({ type: "audio_chunk", data: btoa(binary) }));
-              captureBuf = new Int16Array(2400);
+              captureBuf = new Int16Array(1600);
               captureOffset = 0;
             }
           }
@@ -460,17 +441,20 @@ export default function PublicAiOrderPage() {
       socket.onmessage = (event) => {
         const payload = JSON.parse(String(event.data)) as LiveVoicePayload;
 
-        if (payload.type === "session.ready") setVoiceState("listening");
-        if (payload.type === "session_started") setVoiceState("listening");
+        if (payload.type === "session.ready" || payload.type === "session_started") {
+          canSendVoiceAudioRef.current = false;
+        }
         if (
           payload.type === "status" &&
           (payload.state === "listening" ||
             payload.state === "thinking" ||
             payload.state === "speaking")
         ) {
+          canSendVoiceAudioRef.current = payload.state === "listening";
           setVoiceState(payload.state);
         }
         if (payload.type === "stop_playback") {
+          canSendVoiceAudioRef.current = true;
           playbackNodeRef.current?.port.postMessage(null);
         }
 
@@ -488,16 +472,16 @@ export default function PublicAiOrderPage() {
         }
 
         if (payload.type === "caption.assistant" && payload.text) {
-          setVoiceState("speaking");
           setMessages((prev) => [...prev, { role: "ai", text: payload.text! }]);
-          queueFallbackSpeech(payload.text);
         }
 
         if (payload.type === "assistant.audio" && payload.audio) {
+          canSendVoiceAudioRef.current = false;
           setVoiceState("speaking");
           playPcmAudio(payload.audio);
         }
         if (payload.type === "audio_data" && payload.data) {
+          canSendVoiceAudioRef.current = false;
           setVoiceState("speaking");
           playPcmAudio(payload.data);
         }
@@ -522,6 +506,7 @@ export default function PublicAiOrderPage() {
       };
 
       socket.onclose = () => {
+        canSendVoiceAudioRef.current = false;
         mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
         mediaStreamRef.current = null;
         socketRef.current = null;
@@ -530,6 +515,8 @@ export default function PublicAiOrderPage() {
     } catch (error) {
       audioContextRef.current?.close();
       audioContextRef.current = null;
+      playbackAudioContextRef.current?.close();
+      playbackAudioContextRef.current = null;
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
       setVoiceError(
@@ -541,7 +528,6 @@ export default function PublicAiOrderPage() {
     }
   }, [
     playPcmAudio,
-    queueFallbackSpeech,
     syncDraftSession,
     tenantSlug,
     voiceState,

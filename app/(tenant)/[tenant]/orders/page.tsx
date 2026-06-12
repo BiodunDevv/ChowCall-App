@@ -213,7 +213,7 @@ export default function OrdersPage() {
                   "flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
                   active
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : "border bg-card text-muted-foreground hover:border-border hover:text-foreground",
+                    : "border bg-background text-muted-foreground hover:border-border hover:text-foreground",
                 ].join(" ")}
               >
                 {s === "ALL" ? "All" : STATUS_LABEL[s]}
@@ -320,7 +320,7 @@ function OrderCard({
     order.status === "COMPLETED" || order.status === "CANCELLED";
 
   return (
-    <article className="overflow-hidden rounded-xl border bg-card transition-shadow hover:shadow-sm">
+    <article className="overflow-hidden rounded-xl border bg-background transition-shadow hover:shadow-sm">
       {/* Top bar */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/30 px-4 py-2.5">
         <span

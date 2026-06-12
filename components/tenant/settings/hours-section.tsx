@@ -60,7 +60,7 @@ export function HoursSection() {
   }
 
   return (
-    <Card>
+    <Card className="bg-background">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <IconClock className="size-4" />

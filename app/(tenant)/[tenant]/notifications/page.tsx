@@ -322,7 +322,7 @@ export default function NotificationsPage() {
         <div className="space-y-4">
 
           {/* Push Notifications */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="rounded-xl border bg-background p-5 space-y-4">
             <div className="flex items-center gap-2">
               <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
                 <IconDeviceMobile className="size-4 text-primary" />
@@ -374,7 +374,7 @@ export default function NotificationsPage() {
           </div>
 
           {/* Email Notifications */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="rounded-xl border bg-background p-5 space-y-4">
             <div className="flex items-center gap-2">
               <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
                 <IconMail className="size-4 text-primary" />

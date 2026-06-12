@@ -47,7 +47,7 @@ export function FeesSection() {
   }
 
   return (
-    <Card>
+    <Card className="bg-background">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <IconCurrencyDollar className="size-4" />

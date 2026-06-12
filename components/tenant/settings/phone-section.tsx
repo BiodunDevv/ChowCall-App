@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api/client";
 import { toast } from "sonner";
-import { IconMicrophone, IconVolume } from "@tabler/icons-react";
+import { IconMicrophone } from "@tabler/icons-react";
 
 type VoiceOption = {
   name: string;
@@ -48,7 +48,6 @@ export function PhoneSection() {
   const [voiceOptions, setVoiceOptions] = useState<VoiceGroup[]>([]);
   const [models, setModels] = useState<VoiceModel[]>([]);
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     api<{ data?: { enabled?: boolean; phone?: string; greeting?: string; instructions?: string; voiceSettings?: {
@@ -113,27 +112,8 @@ export function PhoneSection() {
     }
   }
 
-  async function testVoice() {
-    setTesting(true);
-    try {
-      if (!("speechSynthesis" in window)) {
-        throw new Error("Voice preview is not available in this browser.");
-      }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(
-        welcomeMessage.trim() || "Welcome. What would you like to order today?",
-      );
-      utterance.lang = language;
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not preview voice");
-    } finally {
-      setTesting(false);
-    }
-  }
-
   return (
-    <Card>
+    <Card className="bg-background">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <IconMicrophone className="size-4" />
@@ -296,11 +276,7 @@ export function PhoneSection() {
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={testVoice} disabled={testing}>
-            <IconVolume className="size-4" />
-            {testing ? "Playing..." : "Preview"}
-          </Button>
+        <div className="flex justify-end">
           <Button onClick={save} disabled={saving}>
             {saving ? "Saving..." : "Save voice settings"}
           </Button>

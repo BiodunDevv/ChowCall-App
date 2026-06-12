@@ -379,7 +379,7 @@ function InventoryRow({
   return (
     <div
       className={[
-        "flex items-center justify-between gap-4 bg-card px-4 py-3.5",
+        "flex items-center justify-between gap-4 bg-background px-4 py-3.5",
         !isLast ? "border-b" : "",
       ].join(" ")}
     >

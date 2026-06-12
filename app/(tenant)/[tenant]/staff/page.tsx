@@ -275,7 +275,7 @@ export default function StaffPage() {
               <div
                 key={member._id}
                 className={[
-                  "flex flex-col gap-3 bg-card px-4 py-4 sm:flex-row sm:items-center sm:justify-between",
+                  "flex flex-col gap-3 bg-background px-4 py-4 sm:flex-row sm:items-center sm:justify-between",
                   idx !== staff.length - 1 ? "border-b" : "",
                 ].join(" ")}
               >

@@ -144,7 +144,7 @@ export function StorefrontSection() {
         src={previewSrc}
         alt="Image preview"
       />
-      <div className="divide-y rounded-2xl border bg-card overflow-hidden">
+      <div className="divide-y rounded-2xl border bg-background overflow-hidden">
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">

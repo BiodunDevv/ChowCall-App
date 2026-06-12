@@ -12,6 +12,7 @@ import {
   IconClock,
   IconMicrophone,
   IconWorld,
+  IconBuildingStore,
 } from "@tabler/icons-react";
 
 interface TenantSettingsShellProps {
@@ -46,6 +47,11 @@ export function TenantSettingsShell({ tenantSlug, children }: TenantSettingsShel
     {
       label: "Restaurant",
       items: [
+        {
+          label: "General",
+          href: `${base}/general`,
+          icon: <IconBuildingStore className="size-4" />,
+        },
         {
           label: "Delivery Pricing",
           href: `${base}/delivery`,

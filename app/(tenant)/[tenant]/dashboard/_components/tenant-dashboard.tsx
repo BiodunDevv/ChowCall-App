@@ -105,7 +105,7 @@ export function TenantDashboard({ tenant }: { tenant: string }) {
 				<p className="text-sm text-muted-foreground">Tenant workspace</p>
 				<h1 className="font-semibold text-2xl tracking-tight">{tenantName}</h1>
 			</div>
-			<BalanceWidget />
+			{/* <BalanceWidget /> */}
 			<Dashboard />
 		</AppShell>
 	);

@@ -135,7 +135,7 @@ export default function BillingPlanPage() {
               return (
                 <div
                   key={plan._id}
-                  className={`relative flex flex-col rounded-2xl border bg-card p-6 shadow-sm transition-shadow hover:shadow-md ${isPopular ? "border-primary ring-2 ring-primary/20" : ""}`}
+                  className={`relative flex flex-col rounded-2xl border bg-background p-6 shadow-sm transition-shadow hover:shadow-md ${isPopular ? "border-primary ring-2 ring-primary/20" : ""}`}
                 >
                   {plan.badge && (
                     <span className={`absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-0.5 text-xs font-semibold ${isPopular ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
@@ -187,7 +187,7 @@ export default function BillingPlanPage() {
         </div>
 
         {user && (
-          <div className="mt-10 flex items-center justify-between gap-3 rounded-xl border bg-card p-3">
+          <div className="mt-10 flex items-center justify-between gap-3 rounded-xl border bg-background p-3">
             <div className="flex min-w-0 items-center gap-3">
               <Avatar className="size-9 shrink-0">
                 <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">

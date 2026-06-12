@@ -89,7 +89,7 @@ export function ProfileSection() {
     .replace(/\b\w/g, (c) => c.toUpperCase()) ?? "—";
 
   return (
-    <Card>
+    <Card className="bg-background">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <IconUser className="size-4" />
@@ -254,7 +254,7 @@ export function SecuritySection() {
 
   return (
     <>
-      <Card>
+      <Card className="bg-background">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <IconShieldCheck className="size-4" />
@@ -440,7 +440,7 @@ export function NotificationsSection() {
       : { label: "Not set", class: "bg-muted text-muted-foreground" };
 
   return (
-    <Card>
+    <Card className="bg-background">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <IconBell className="size-4" />

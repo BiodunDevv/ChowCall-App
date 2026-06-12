@@ -35,7 +35,7 @@ export function BalanceWidget() {
 
   if (isLoading) {
     return (
-      <Card className="mb-4">
+      <Card className="mb-4 bg-background">
         <CardContent className="flex items-center justify-center py-6">
           <IconLoader className="size-5 animate-spin text-muted-foreground" />
         </CardContent>
@@ -48,7 +48,7 @@ export function BalanceWidget() {
   // Worker / kitchen staff — today only
   if (role === "worker" || role === "kitchen_staff") {
     return (
-      <Card className="mb-4">
+      <Card className="mb-4 bg-background">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <IconShoppingCart className="size-4" />
@@ -71,7 +71,7 @@ export function BalanceWidget() {
 
   // Tenant admin — full balance
   return (
-    <Card className="mb-4">
+    <Card className="mb-4 bg-background">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <IconWallet className="size-4" />

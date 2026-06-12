@@ -135,7 +135,7 @@ export const tenantNavGroups: SidebarNavGroup[] = [
       },
       {
         title: "Notifications",
-        path: "/settings/notifications",
+        path: "/notifications",
         icon: <IconBell />,
       },
       {
