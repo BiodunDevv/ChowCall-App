@@ -29,9 +29,9 @@ import {
   IconMinus,
   IconTrash,
   IconShoppingCart,
-  IconSend,
   IconMicrophone,
   IconMicrophoneOff,
+  IconVolume,
   IconRobot,
   IconUser,
   IconCircleCheck,
@@ -43,16 +43,16 @@ import {
   IconX,
   IconChevronUp,
   IconSearch,
-  IconSparkles,
 } from "@tabler/icons-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type ChatMsg = { role: "ai" | "user"; text: string; itemsAdded?: string[] };
 type CheckoutStep = "closed" | "details" | "confirm";
-type VoiceCallState = "idle" | "connecting" | "listening" | "thinking" | "error";
+type VoiceCallState = "idle" | "connecting" | "speaking" | "listening" | "thinking" | "error";
 type SpeechSdkModule = typeof import("microsoft-cognitiveservices-speech-sdk");
 type SpeechRecognizer = InstanceType<SpeechSdkModule["SpeechRecognizer"]>;
+type SpeechSynthesizer = InstanceType<SpeechSdkModule["SpeechSynthesizer"]>;
 
 const EMPTY_CUSTOMER: CustomerDetails = {
   name: "", phone: "", email: "", address: "", landmark: "",
@@ -81,18 +81,18 @@ export default function PublicAiOrderPage() {
   const [addedId, setAddedId] = useState<string | null>(null);
   const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Chat state
+  // ── Voice order state
   const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const [inputText, setInputText] = useState("");
-  const [aiTyping, setAiTyping] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [statusToken, setStatusToken] = useState<string | null>(null);
   const [voiceState, setVoiceState] = useState<VoiceCallState>("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState("");
   const recognizerRef = useRef<SpeechRecognizer | null>(null);
+  const synthesizerRef = useRef<SpeechSynthesizer | null>(null);
+  const speechSdkRef = useRef<SpeechSdkModule | null>(null);
+  const speechConfigRef = useRef<ReturnType<SpeechSdkModule["SpeechConfig"]["fromAuthorizationToken"]> | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // ── Menu sheet state
   const [menuOpen, setMenuOpen] = useState(false);
@@ -225,66 +225,6 @@ export default function PublicAiOrderPage() {
   const cartCount = cart.reduce((s, l) => s + l.quantity, 0);
   const cartTotal = cart.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
 
-  // ── AI chat: parse message for menu item mentions
-  const parseAndAddItems = useCallback((text: string): { added: string[]; reply: string } => {
-    const lower = text.toLowerCase();
-    const added: string[] = [];
-
-    // Extract quantity: "2 jollof", "one chicken"
-    const wordNums: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
-
-    for (const item of menuItems) {
-      if (!item.available) continue;
-      const nameLower = item.name.toLowerCase();
-      // Check if any word of item name appears in message
-      const mainWord = nameLower.split(/[\s+]/)[0];
-      if (!mainWord || !lower.includes(mainWord)) continue;
-
-      // Try to find quantity before item name
-      const before = lower.substring(0, lower.indexOf(mainWord));
-      const numMatch = before.match(/(\d+)\s*$/) ?? before.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\s*$/i);
-      let qty = 1;
-      if (numMatch) {
-        qty = parseInt(numMatch[1]) || wordNums[numMatch[1].toLowerCase()] || 1;
-      }
-      for (let i = 0; i < qty; i++) addToCart(item, i === 0);
-      added.push(`${qty > 1 ? qty + "× " : ""}${item.name}`);
-    }
-
-    if (added.length > 0) {
-      const total = cart.reduce((s, l) => s + l.unitPrice * l.quantity, 0) + added.reduce((s, name) => {
-        const item = menuItems.find((m) => name.includes(m.name));
-        return s + (item?.basePrice ?? 0);
-      }, 0);
-      return {
-        added,
-        reply: `Got it! I've added ${added.join(", ")} to your order. Your cart total is around ${formatMoney(total)}. Want to add anything else, or shall we go to checkout?`,
-      };
-    }
-
-    // Check for checkout intent
-    if (lower.match(/checkout|pay|done|confirm|that.?s all|that.?s it|complete|finish/)) {
-      if (cart.length === 0) return { added: [], reply: "Your cart is empty! Let me know what you'd like to order from the menu." };
-      setCheckoutStep("details");
-      return { added: [], reply: `Perfect! Let's confirm your details. I've got ${cartCount} item${cartCount !== 1 ? "s" : ""} — ${formatMoney(cartTotal)} subtotal. Tap the checkout panel to fill in your name and how you'd like to receive your order.` };
-    }
-
-    // Check for menu intent
-    if (lower.match(/menu|what.?s available|what do you have|options|food|eat/)) {
-      setMenuOpen(true);
-      return { added: [], reply: "I've opened the menu for you! Browse and tap 'Add' on any dish, or just tell me what you'd like — for example, 'I want 2 jollof rice and a puff puff'." };
-    }
-
-    // Check for cart status intent
-    if (lower.match(/cart|order|what.?s in|how much|total|show/)) {
-      if (cart.length === 0) return { added: [], reply: "Your cart is empty right now. Tell me what you'd like to eat or say 'show me the menu'!" };
-      const items = cart.map((l) => `${l.quantity}× ${l.name}`).join(", ");
-      return { added: [], reply: `You currently have: ${items}. That's ${formatMoney(cartTotal)} before fees. Want to add more or go to checkout?` };
-    }
-
-    return { added: [], reply: "I can help you place an order! Just tell me what you'd like — for example: 'I want jollof rice and a Chapman' — or browse the menu by tapping 'View Menu' below." };
-  }, [menuItems, cart, cartCount, cartTotal, addToCart]);
-
   useEffect(() => {
     if (!tenantSlug || !restaurant || sessionId) return;
     let mounted = true;
@@ -300,32 +240,40 @@ export default function PublicAiOrderPage() {
     };
   }, [restaurant, sessionId, syncDraftSession, tenantSlug]);
 
-  const sendChat = useCallback(async (text: string) => {
-    if (!text.trim() || !tenantSlug) return;
-    const userMsg: ChatMsg = { role: "user", text };
-    setMessages((prev) => [...prev, userMsg]);
-    setInputText("");
-    setAiTyping(true);
-
-    try {
-      const res = await publicOrderingApi.sendChatMessage(tenantSlug, { sessionId, message: text });
-      syncDraftSession(res.data.session);
-      const added = (res.data.addedItems ?? []).map((item) => `${item.quantity > 1 ? `${item.quantity}× ` : ""}${item.name}`);
-      const finalReply = res.data.assistantMessage || res.data.reply || "I updated your order.";
-      if (res.data.paymentReady) setCheckoutStep("details");
-      setMessages((prev) => [...prev, { role: "ai", text: finalReply, itemsAdded: added }]);
-    } catch {
-      const { added, reply: localReply } = parseAndAddItems(text);
-      setMessages((prev) => [...prev, { role: "ai", text: localReply, itemsAdded: added }]);
-    } finally {
-      setAiTyping(false);
+  const speakText = useCallback((text: string) => new Promise<void>((resolve, reject) => {
+    const SpeechSDK = speechSdkRef.current;
+    const speechConfig = speechConfigRef.current;
+    if (!SpeechSDK || !speechConfig || !text.trim()) {
+      resolve();
+      return;
     }
-  }, [tenantSlug, sessionId, syncDraftSession, parseAndAddItems]);
+    const synthesizer = new SpeechSDK.SpeechSynthesizer(
+      speechConfig,
+      SpeechSDK.AudioConfig.fromDefaultSpeakerOutput(),
+    );
+    synthesizerRef.current = synthesizer;
+    synthesizer.speakTextAsync(
+      text,
+      () => {
+        synthesizer.close();
+        if (synthesizerRef.current === synthesizer) synthesizerRef.current = null;
+        resolve();
+      },
+      (error) => {
+        synthesizer.close();
+        if (synthesizerRef.current === synthesizer) synthesizerRef.current = null;
+        reject(new Error(String(error || "Speech playback failed.")));
+      },
+    );
+  }), []);
 
   const stopVoiceCall = useCallback(() => {
     const recognizer = recognizerRef.current;
+    const synthesizer = synthesizerRef.current;
     recognizerRef.current = null;
+    synthesizerRef.current = null;
     setLiveTranscript("");
+    if (synthesizer) synthesizer.close();
     if (!recognizer) {
       setVoiceState("idle");
       return;
@@ -342,8 +290,20 @@ export default function PublicAiOrderPage() {
     );
   }, []);
 
+  const startRecognizer = useCallback((recognizer: SpeechRecognizer) => {
+    recognizer.startContinuousRecognitionAsync(
+      () => setVoiceState("listening"),
+      (error) => {
+        recognizer.close();
+        recognizerRef.current = null;
+        setVoiceError(String(error || "Voice ordering is temporarily unavailable."));
+        setVoiceState("error");
+      },
+    );
+  }, []);
+
   const startVoiceCall = useCallback(async () => {
-    if (voiceState === "connecting" || voiceState === "listening" || voiceState === "thinking") return;
+    if (voiceState === "connecting" || voiceState === "speaking" || voiceState === "listening" || voiceState === "thinking") return;
     setVoiceError(null);
     setLiveTranscript("");
     setVoiceState("connecting");
@@ -357,12 +317,15 @@ export default function PublicAiOrderPage() {
       stream.getTracks().forEach((track) => track.stop());
 
       const [{ data }, SpeechSDK] = await Promise.all([
-        publicOrderingApi.webSpeechToken(),
+        publicOrderingApi.webSpeechToken(tenantSlug),
         import("microsoft-cognitiveservices-speech-sdk"),
       ]);
 
       const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(data.token, data.region);
-      speechConfig.speechRecognitionLanguage = "en-NG";
+      speechConfig.speechRecognitionLanguage = data.voice.speechLanguage || "en-NG";
+      speechConfig.speechSynthesisVoiceName = data.voice.speechVoiceName || "en-NG-EzinneNeural";
+      speechSdkRef.current = SpeechSDK;
+      speechConfigRef.current = speechConfig;
       const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
       const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
       recognizerRef.current = recognizer;
@@ -376,8 +339,33 @@ export default function PublicAiOrderPage() {
         setLiveTranscript("");
         if (!text) return;
         setVoiceState("thinking");
-        await sendChat(text);
-        if (recognizerRef.current === recognizer) setVoiceState("listening");
+        recognizer.stopContinuousRecognitionAsync(
+          async () => {
+            try {
+              const res = await publicOrderingApi.sendChatMessage(tenantSlug, { sessionId, message: text });
+              syncDraftSession(res.data.session);
+              const added = (res.data.addedItems ?? []).map((item) => `${item.quantity > 1 ? `${item.quantity}× ` : ""}${item.name}`);
+              const finalReply = res.data.assistantMessage || res.data.reply || "I updated your order.";
+              if (res.data.paymentReady) setCheckoutStep("details");
+              setMessages((prev) => [
+                ...prev,
+                { role: "user", text },
+                { role: "ai", text: finalReply, itemsAdded: added },
+              ]);
+              setVoiceState("speaking");
+              await speakText(finalReply);
+            } catch {
+              const fallback = "I could not update that order. Please try again.";
+              setMessages((prev) => [...prev, { role: "user", text }, { role: "ai", text: fallback }]);
+              setVoiceError(fallback);
+            } finally {
+              if (recognizerRef.current === recognizer) startRecognizer(recognizer);
+            }
+          },
+          () => {
+            if (recognizerRef.current === recognizer) startRecognizer(recognizer);
+          },
+        );
       };
 
       recognizer.canceled = (_sender, event) => {
@@ -395,27 +383,21 @@ export default function PublicAiOrderPage() {
         }
       };
 
-      recognizer.startContinuousRecognitionAsync(
-        () => setVoiceState("listening"),
-        (error) => {
-          recognizer.close();
-          recognizerRef.current = null;
-          setVoiceError(String(error || "Voice ordering is temporarily unavailable."));
-          setVoiceState("error");
-        },
-      );
+      setVoiceState("speaking");
+      await speakText(data.voice.greeting);
+      if (recognizerRef.current === recognizer) startRecognizer(recognizer);
     } catch (error) {
       setVoiceError(error instanceof Error ? error.message : "Voice ordering is temporarily unavailable.");
       setVoiceState("error");
     }
-  }, [sendChat, stopVoiceCall, voiceState]);
+  }, [sessionId, speakText, startRecognizer, syncDraftSession, tenantSlug, voiceState]);
 
   useEffect(() => stopVoiceCall, [stopVoiceCall]);
 
   // Scroll chat to bottom on new messages
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, aiTyping]);
+  }, [messages, liveTranscript, voiceState]);
 
   // ── Menu grouping
   const grouped = useMemo(() => {
@@ -493,32 +475,14 @@ export default function PublicAiOrderPage() {
       {/* Main: chat + cart side by side — fills remaining height */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
 
-        {/* ── LEFT: AI Chat panel ─────────────────────────────── */}
+        {/* ── LEFT: AI voice order panel ───────────────────────── */}
         <div className="flex min-w-0 flex-1 flex-col">
 
-          {/* Chat messages — THIS is the scroll container */}
+          {/* Transcript — THIS is the scroll container */}
           <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4 sm:px-6">
 
             {/* AI greeting */}
             <AiBubble text={greeting} />
-
-            {/* Quick action chips */}
-            <div className="flex flex-wrap gap-2 pl-8">
-              {[
-                "Show me the menu",
-                "What's popular?",
-                "What's in my cart?",
-              ].map((chip) => (
-                <button
-                  key={chip}
-                  type="button"
-                  onClick={() => sendChat(chip)}
-                  className="rounded-full border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-                >
-                  {chip}
-                </button>
-              ))}
-            </div>
 
             {/* Message history */}
             {messages.map((msg, i) =>
@@ -540,27 +504,12 @@ export default function PublicAiOrderPage() {
               )
             )}
 
-            {aiTyping && (
-              <div className="flex items-end gap-2">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <IconRobot className="size-3.5 text-primary" />
-                </div>
-                <div className="rounded-2xl rounded-bl-sm bg-muted px-4 py-3">
-                  <div className="flex gap-1">
-                    <span className="size-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:0ms]" />
-                    <span className="size-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:150ms]" />
-                    <span className="size-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:300ms]" />
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div ref={chatBottomRef} />
           </div>
 
-          {/* Chat input bar */}
+          {/* Voice call bar */}
           <div className="border-t bg-card/80 px-4 py-3 backdrop-blur-sm sm:px-6">
-            <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
               <VoiceCallControl
                 state={voiceState}
                 error={voiceError}
@@ -568,39 +517,14 @@ export default function PublicAiOrderPage() {
                 onStart={startVoiceCall}
                 onStop={stopVoiceCall}
               />
-              <div className="flex items-center gap-2">
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <IconSparkles className="size-3.5 text-primary" />
-              </div>
-              <div className="flex flex-1 items-center gap-2 rounded-full border bg-background px-3 py-1.5">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(inputText); } }}
-                  placeholder="What would you like to order?"
-                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
-                />
-                <button
-                  type="button"
-                  onClick={() => sendChat(inputText)}
-                  disabled={!inputText.trim() || aiTyping}
-                  className="flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all disabled:opacity-40 hover:opacity-90 active:scale-95"
-                >
-                  <IconSend className="size-3.5" />
-                </button>
-              </div>
-              {/* View menu button */}
               <button
                 type="button"
                 onClick={() => setMenuOpen(true)}
-                className="flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted shrink-0"
+                className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted"
               >
                 <IconToolsKitchen2 className="size-3.5" />
                 <span className="hidden sm:block">Menu</span>
               </button>
-              </div>
             </div>
           </div>
         </div>
@@ -732,10 +656,12 @@ function VoiceCallControl({
   onStart: () => void;
   onStop: () => void;
 }) {
-  const active = state === "connecting" || state === "listening" || state === "thinking";
+  const active = state === "connecting" || state === "speaking" || state === "listening" || state === "thinking";
   const status =
     state === "connecting"
       ? "Connecting to voice ordering..."
+      : state === "speaking"
+        ? "Assistant is speaking..."
       : state === "listening"
         ? transcript || "Listening. Speak your order naturally."
         : state === "thinking"
@@ -745,7 +671,7 @@ function VoiceCallControl({
             : "Talk to the ordering assistant.";
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2">
+    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border bg-background px-2.5 py-2">
       <button
         type="button"
         onClick={active ? onStop : onStart}
@@ -753,7 +679,13 @@ function VoiceCallControl({
         disabled={state === "connecting"}
         aria-label={active ? "End voice order" : "Start voice order"}
       >
-        {active ? <IconMicrophoneOff className="size-4" /> : <IconMicrophone className="size-4" />}
+        {state === "speaking" ? (
+          <IconVolume className="size-4" />
+        ) : active ? (
+          <IconMicrophoneOff className="size-4" />
+        ) : (
+          <IconMicrophone className="size-4" />
+        )}
       </button>
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-medium">

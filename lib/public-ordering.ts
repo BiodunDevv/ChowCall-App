@@ -10,6 +10,7 @@ export type PublicTenant = {
 	openingHours?: string | Record<string, unknown> | null;
 	aiGreeting?: string;
 	aiAgent?: { enabled?: boolean; instructions?: string };
+	voice?: TenantVoiceSettings;
 	coverImageUrl?: string | null;
 	heroImageLightUrl?: string | null;
 	heroImageDarkUrl?: string | null;
@@ -29,6 +30,14 @@ export type PublicTenant = {
 	deliveryEnabled?: boolean | null;
 	estimatedPrepTime?: number | null;
 	active?: boolean;
+};
+
+export type TenantVoiceSettings = {
+	enabled: boolean;
+	greeting: string;
+	speechVoiceName: string;
+	speechVoiceStyle: string;
+	speechLanguage: string;
 };
 
 export type PublicMenuItem = {
@@ -92,6 +101,7 @@ export type WebSpeechToken = {
 	region: string;
 	endpoint: string;
 	expiresInSeconds: number;
+	voice: TenantVoiceSettings;
 };
 
 type PublicResponse<T> = { data: T; tenant?: PublicTenant };
@@ -141,10 +151,10 @@ export const publicOrderingApi = {
 			`/v1/public-ordering/${tenantSlug}/chat/message`,
 			{ method: "POST", body: JSON.stringify(payload) },
 		),
-	webSpeechToken: () =>
+	webSpeechToken: (tenantSlug?: string) =>
 		publicFetch<PublicResponse<WebSpeechToken>>(
 			"/v1/voice/web-token",
-			{ method: "POST", body: JSON.stringify({}) },
+			{ method: "POST", body: JSON.stringify({ tenantSlug }) },
 		),
 	createOrder: (tenantSlug: string, payload: { sessionId: string; customer?: unknown }) =>
 		publicFetch<PublicResponse<PublicOrderCheckoutResponse>>(
