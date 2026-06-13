@@ -78,7 +78,7 @@ export function LiveVoicePanel({
       </div>
 
       {/* Center column — max-width mirrors reference min(450px,100%) */}
-      <div className="relative z-10 flex w-full max-w-112.5 flex-1 flex-col items-center justify-center px-6">
+      <div className="relative z-10 flex min-h-0 w-full max-w-112.5 flex-1 flex-col items-center justify-center px-6">
 
         {error && (
           <Alert variant="destructive" className="mb-8 w-full text-left">
@@ -142,9 +142,9 @@ export function LiveVoicePanel({
           </div>
         ) : (
           /* ── Active session — matches reference ActiveSession.tsx ── */
-          <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
+          <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-6">
             {showCaptions ? (
-              <div className="flex min-h-0 w-full flex-1 items-center">
+              <div className="flex h-full min-h-0 w-full flex-1 items-stretch py-4">
                 <LiveCaptions captions={captions} />
               </div>
             ) : (

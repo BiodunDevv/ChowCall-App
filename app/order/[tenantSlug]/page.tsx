@@ -123,6 +123,7 @@ export default function PublicAiOrderPage() {
   const [liveVoiceSessionId, setLiveVoiceSessionId] = useState<string | null>(null);
   const [statusToken, setStatusToken] = useState<string | null>(null);
   const [voiceState, setVoiceState] = useState<SessionState>("idle");
+  const voiceStateRef = useRef<SessionState>("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [captionsActive, setCaptionsActive] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
@@ -131,6 +132,8 @@ export default function PublicAiOrderPage() {
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
   const playbackNodeRef = useRef<AudioWorkletNode | null>(null);
   const canSendVoiceAudioRef = useRef(false);
+  const playbackActiveRef = useRef(false);
+  const resumeMicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transcriptBottomRef = useRef<HTMLDivElement>(null);
 
   // ── Menu sheet state
@@ -165,6 +168,10 @@ export default function PublicAiOrderPage() {
       : restaurant?.active === false
       ? "AI voice ordering is available after this restaurant activates ChowCall."
       : "AI voice ordering is not active for this restaurant right now.";
+
+  useEffect(() => {
+    voiceStateRef.current = voiceState;
+  }, [voiceState]);
 
   // ── Photo lookup: id → url
   const photoMap = useMemo(() => {
@@ -338,6 +345,11 @@ export default function PublicAiOrderPage() {
 
   const stopVoiceCall = useCallback(() => {
     canSendVoiceAudioRef.current = false;
+    playbackActiveRef.current = false;
+    if (resumeMicTimerRef.current) {
+      clearTimeout(resumeMicTimerRef.current);
+      resumeMicTimerRef.current = null;
+    }
     // Stop playback worklet
     playbackNodeRef.current?.port.postMessage(null);
     playbackNodeRef.current = null;
@@ -417,6 +429,34 @@ export default function PublicAiOrderPage() {
 
       const playbackNode = new AudioWorkletNode(playbackAudioCtx, "audio-playback-processor");
       playbackNode.connect(playbackAudioCtx.destination);
+      const resumeMicAfterPlayback = () => {
+        if (resumeMicTimerRef.current) clearTimeout(resumeMicTimerRef.current);
+        resumeMicTimerRef.current = setTimeout(() => {
+          resumeMicTimerRef.current = null;
+          playbackActiveRef.current = false;
+          if (socketRef.current?.readyState === WebSocket.OPEN && voiceStateRef.current !== "muted") {
+            canSendVoiceAudioRef.current = true;
+            setVoiceState((current) =>
+              current === "speaking" || current === "thinking" ? "listening" : current,
+            );
+          }
+        }, 250);
+      };
+      playbackNode.port.onmessage = (event: MessageEvent<{ type?: string }>) => {
+        if (event.data?.type === "playback-started") {
+          playbackActiveRef.current = true;
+          canSendVoiceAudioRef.current = false;
+          if (resumeMicTimerRef.current) {
+            clearTimeout(resumeMicTimerRef.current);
+            resumeMicTimerRef.current = null;
+          }
+          setVoiceState("speaking");
+          return;
+        }
+        if (event.data?.type === "playback-ended") {
+          resumeMicAfterPlayback();
+        }
+      };
       playbackNodeRef.current = playbackNode;
 
       const socket = new WebSocket(liveVoiceWsUrl(tenantSlug, data.sessionId));
@@ -464,10 +504,16 @@ export default function PublicAiOrderPage() {
             payload.state === "thinking" ||
             payload.state === "speaking")
         ) {
-          canSendVoiceAudioRef.current = payload.state === "listening";
+          canSendVoiceAudioRef.current =
+            payload.state === "listening" && !playbackActiveRef.current;
           setVoiceState(payload.state);
         }
         if (payload.type === "stop_playback") {
+          playbackActiveRef.current = false;
+          if (resumeMicTimerRef.current) {
+            clearTimeout(resumeMicTimerRef.current);
+            resumeMicTimerRef.current = null;
+          }
           canSendVoiceAudioRef.current = true;
           playbackNodeRef.current?.port.postMessage(null);
         }
@@ -490,11 +536,21 @@ export default function PublicAiOrderPage() {
         }
 
         if (payload.type === "assistant.audio" && payload.audio) {
+          playbackActiveRef.current = true;
+          if (resumeMicTimerRef.current) {
+            clearTimeout(resumeMicTimerRef.current);
+            resumeMicTimerRef.current = null;
+          }
           canSendVoiceAudioRef.current = false;
           setVoiceState("speaking");
           playPcmAudio(payload.audio);
         }
         if (payload.type === "audio_data" && payload.data) {
+          playbackActiveRef.current = true;
+          if (resumeMicTimerRef.current) {
+            clearTimeout(resumeMicTimerRef.current);
+            resumeMicTimerRef.current = null;
+          }
           canSendVoiceAudioRef.current = false;
           setVoiceState("speaking");
           playPcmAudio(payload.data);
@@ -521,6 +577,11 @@ export default function PublicAiOrderPage() {
 
       socket.onclose = (event) => {
         canSendVoiceAudioRef.current = false;
+        playbackActiveRef.current = false;
+        if (resumeMicTimerRef.current) {
+          clearTimeout(resumeMicTimerRef.current);
+          resumeMicTimerRef.current = null;
+        }
         mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
         mediaStreamRef.current = null;
         socketRef.current = null;
@@ -532,6 +593,11 @@ export default function PublicAiOrderPage() {
         }
       };
     } catch (error) {
+      playbackActiveRef.current = false;
+      if (resumeMicTimerRef.current) {
+        clearTimeout(resumeMicTimerRef.current);
+        resumeMicTimerRef.current = null;
+      }
       audioContextRef.current?.close();
       audioContextRef.current = null;
       playbackAudioContextRef.current?.close();
