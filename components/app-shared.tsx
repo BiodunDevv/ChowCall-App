@@ -151,22 +151,12 @@ export const tenantNavGroups: SidebarNavGroup[] = [
 
 export const superAdminNavGroups: SidebarNavGroup[] = [
   {
-    label: "Platform",
+    label: "Operations",
     items: [
       {
         title: "Dashboard",
         path: "/super-admin/dashboard",
         icon: <IconLayoutGrid />,
-      },
-      {
-        title: "Tenants",
-        path: "/super-admin/tenants",
-        icon: <IconBuilding />,
-      },
-      {
-        title: "Users",
-        path: "/super-admin/users",
-        icon: <IconUserCog />,
       },
       {
         title: "Orders",
@@ -178,55 +168,45 @@ export const superAdminNavGroups: SidebarNavGroup[] = [
         path: "/super-admin/calls",
         icon: <IconMicrophone />,
       },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
       {
-        title: "Billing & Plans",
-        path: "/super-admin/billing",
-        icon: <IconCreditCard />,
-      },
-      {
-        title: "Invoices",
-        path: "/super-admin/invoices",
-        icon: <IconFileInvoice />,
-      },
-      {
-        title: "Usage",
-        path: "/super-admin/usage",
-        icon: <IconActivity />,
+        title: "Live Confirm",
+        path: "/super-admin/live-confirm",
+        icon: <IconCheckbox />,
       },
     ],
   },
   {
-    label: "System",
+    label: "Restaurant",
     items: [
       {
-        title: "Providers",
-        path: "/super-admin/providers",
-        icon: <IconServer />,
+        title: "Menu",
+        path: "/super-admin/menu",
+        icon: <IconToolsKitchen2 />,
       },
       {
-        title: "Voice Channels",
-        path: "/super-admin/routing",
-        icon: <IconRoute />,
+        title: "Inventory",
+        path: "/super-admin/inventory",
+        icon: <IconPackage />,
       },
       {
-        title: "AI Config",
-        path: "/super-admin/ai-config",
-        icon: <IconBrain />,
+        title: "Kitchen Tickets",
+        path: "/super-admin/kitchen",
+        icon: <IconReceipt />,
+      },
+    ],
+  },
+  {
+    label: "Team",
+    items: [
+      {
+        title: "Staff",
+        path: "/super-admin/staff",
+        icon: <IconUsers />,
       },
       {
-        title: "Audit Logs",
-        path: "/super-admin/audit",
-        icon: <IconShield />,
-      },
-      {
-        title: "Announcements",
-        path: "/super-admin/announcements",
-        icon: <IconSpeakerphone />,
+        title: "Escalations",
+        path: "/super-admin/escalations",
+        icon: <IconAlertTriangle />,
       },
     ],
   },
@@ -234,20 +214,30 @@ export const superAdminNavGroups: SidebarNavGroup[] = [
     label: "Analytics",
     items: [
       {
-        title: "Platform Analytics",
+        title: "Analytics",
         path: "/super-admin/analytics",
         icon: <IconChartBar />,
       },
       {
-        title: "Revenue",
-        path: "/super-admin/revenue",
-        icon: <IconTrendingUp />,
+        title: "Reports",
+        path: "/super-admin/reports",
+        icon: <IconFileText />,
       },
     ],
   },
   {
-    label: "Administration",
+    label: "Account",
     items: [
+      {
+        title: "Billing & Usage",
+        path: "/super-admin/billing",
+        icon: <IconWallet />,
+      },
+      {
+        title: "Notifications",
+        path: "/super-admin/announcements",
+        icon: <IconBell />,
+      },
       {
         title: "Settings",
         path: "/super-admin/settings",
