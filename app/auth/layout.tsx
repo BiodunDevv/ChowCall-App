@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { authApi, getPostAuthPath } from "@/lib/auth";
 
@@ -11,7 +10,7 @@ export default function AuthLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const router = useRouter();
+	const queryClient = useQueryClient();
 	const user = useAuthStore((state) => state.user);
 	const clearAuth = useAuthStore((state) => state.clearAuth);
 	const session = useQuery({
@@ -19,18 +18,16 @@ export default function AuthLayout({
 		queryFn: () => authApi.me(),
 		enabled: Boolean(user),
 		retry: false,
+		staleTime: 0,
 	});
 
 	useEffect(() => {
 		if (!user || !session.data?.user) return;
 		const dest = getPostAuthPath(session.data.user);
-		// Absolute URLs (super admin crossing from subdomain) need full navigation
-		if (dest.startsWith("http")) {
-			window.location.replace(dest);
-		} else {
-			router.replace(dest);
-		}
-	}, [session.data?.user, user, router]);
+		// Always hard-navigate to flush stale cache — critical for super-admin
+		queryClient.clear();
+		window.location.replace(dest.startsWith("http") ? dest : window.location.origin + dest);
+	}, [session.data?.user, user, queryClient]);
 
 	useEffect(() => {
 		if (session.isError) clearAuth();

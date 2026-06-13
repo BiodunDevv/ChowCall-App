@@ -1,21 +1,16 @@
 "use client";
+
 import { AppShell } from "@/components/app-shell";
-import { IconActivity } from "@tabler/icons-react";
+import { Dashboard } from "@/components/dashboard/dashboard";
 
 export default function UsagePage() {
   return (
     <AppShell>
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 py-20 text-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl border bg-muted">
-          <IconActivity className="size-7 text-muted-foreground" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold">Usage</h2>
-          <p className="max-w-xs text-sm text-muted-foreground">
-            This section is coming soon. We&apos;re building it right now.
-          </p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Usage</h1>
+        <p className="text-sm text-muted-foreground">Platform-wide activity, order volumes, and channel breakdown.</p>
       </div>
+      <Dashboard apiPath="/v1/admin/dashboard" scope="platform" />
     </AppShell>
   );
 }

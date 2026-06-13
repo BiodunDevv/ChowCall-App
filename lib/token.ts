@@ -75,14 +75,40 @@ export function redirectToRootSignin(): void {
   }
 }
 
-// ---------- legacy no-ops kept so existing imports don't break ----------
+// ---------- sessionStorage token handoff ----------
+// Mobile browsers (iOS Safari) may not persist document.cookie writes before
+// a hard navigation (window.location.href). We bridge the gap by writing the
+// access token to sessionStorage immediately after login, then consuming it
+// on the first api() call of the destination page.
 
-/** No-op: token handoff was only needed for cross-subdomain navigation. */
+const SS_TOKEN_KEY = "cc_access_handoff";
+
+/** Stash the token in sessionStorage so the next page load can pick it up. */
+export function stashTokenForHandoff(token: string): void {
+  try {
+    sessionStorage.setItem(SS_TOKEN_KEY, token);
+  } catch {
+    // sessionStorage blocked (private mode edge cases) — cookie is still the fallback
+  }
+}
+
+/** Read and immediately remove the stashed handoff token. */
 export function consumeTokenFromUrl(): string | null {
+  try {
+    const token = sessionStorage.getItem(SS_TOKEN_KEY);
+    if (token) {
+      sessionStorage.removeItem(SS_TOKEN_KEY);
+      // Also write it to the persistent cookie so subsequent requests work
+      setTokenCookie(token);
+      return token;
+    }
+  } catch {
+    // ignore
+  }
   return null;
 }
 
-/** No-op: no subdomain handoff in the path-based model. */
+/** No-op kept for import compatibility. */
 export function appendLocalTokenHandoff(url: string, _token?: string | null): string {
   return url;
 }

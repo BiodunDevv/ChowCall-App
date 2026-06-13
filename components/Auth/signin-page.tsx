@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,12 +13,14 @@ import {
 import { AuthShell } from "@/components/Auth/auth-shell";
 import { LogoLoadingScreen } from "@/components/shared/logo-loading-screen";
 import { authApi, getPostAuthPath } from "@/lib/auth";
+import { stashTokenForHandoff } from "@/lib/token";
 import { useAuthStore } from "@/stores/auth-store";
 import { IconAt, IconLock, IconShieldCheck } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 export function SignInPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const setUser = useAuthStore((state) => state.setUser);
   const setTokens = useAuthStore((state) => state.setTokens);
   const setPendingOtp = useAuthStore((state) => state.setPendingOtp);
@@ -41,14 +43,24 @@ export function SignInPage() {
 
       if (response.user) {
         setUser(response.user);
-        if (response.accessToken) setTokens(response.accessToken);
-        toast.success(`Welcome back, ${response.user.name.split(" ")[0]}!`);
-        const dest = getPostAuthPath(response.user, response.accessToken);
-        if (dest.startsWith("http")) {
-          window.location.replace(dest);
-        } else {
-          router.push(dest);
+        // response.accessToken is normalised from tokens.accessToken by normalizeAuthResponse.
+        // Also read it from the raw tokens object as a fallback in case normalisation misses it.
+        const rawTokens = (response as unknown as Record<string, unknown>).tokens as { accessToken?: string } | undefined;
+        const token = response.accessToken ?? rawTokens?.accessToken ?? null;
+        if (token) {
+          setTokens(token);
+          // Stash in sessionStorage so the destination page can read it even
+          // if the document.cookie write doesn't survive the hard navigation
+          // on mobile Safari / iOS WebKit.
+          stashTokenForHandoff(token);
         }
+        toast.success(`Welcome back, ${response.user.name.split(" ")[0]}!`);
+        const dest = getPostAuthPath(response.user, token);
+        // Always use hard navigation so the query cache is fully reset.
+        // This is critical for super-admin: router.push would reuse the
+        // stale auth-me cache and trigger redirect loops in useProtectedSession.
+        queryClient.clear();
+        window.location.href = dest.startsWith("http") ? dest : window.location.origin + dest;
         return;
       }
 

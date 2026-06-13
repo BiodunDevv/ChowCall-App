@@ -87,7 +87,18 @@ function makeId(item: PublicMenuItem) {
 }
 
 function liveVoiceWsUrl(tenantSlug: string, sessionId: string) {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_WS_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "http://localhost:4000";
+  const isDeployedBrowser =
+    typeof window !== "undefined" &&
+    window.location.hostname !== "localhost" &&
+    window.location.hostname !== "127.0.0.1";
+  const apiUrl =
+    isDeployedBrowser && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(configuredUrl)
+      ? "https://chowcall-backend.onrender.com"
+      : configuredUrl;
   const base = new URL(apiUrl);
   base.protocol = base.protocol === "https:" ? "wss:" : "ws:";
   base.pathname = `/v1/public-ordering/${tenantSlug}/live-voice/stream/${sessionId}`;
@@ -145,10 +156,13 @@ export default function PublicAiOrderPage() {
 
   const restaurant = menu.data?.tenant ?? null;
   const menuItems = menu.data?.data ?? [];
+  const restaurantOpen = restaurant ? isOpenNow(restaurant.openingHours) : true;
   const voiceUnavailable =
-    restaurant?.active === false || restaurant?.voice?.enabled === false;
+    restaurant?.active === false || restaurant?.voice?.enabled === false || !restaurantOpen;
   const voiceUnavailableMessage =
-    restaurant?.active === false
+    !restaurantOpen
+      ? "This restaurant is currently closed. Voice ordering will be available when it reopens."
+      : restaurant?.active === false
       ? "AI voice ordering is available after this restaurant activates ChowCall."
       : "AI voice ordering is not active for this restaurant right now.";
 
@@ -176,7 +190,7 @@ export default function PublicAiOrderPage() {
   const quote = useQuery({
     queryKey: ["public-order-quote", tenantSlug, quotePayload],
     queryFn: () => publicOrderingApi.quote(tenantSlug, quotePayload),
-    enabled: cart.length > 0 && checkoutStep !== "closed",
+    enabled: restaurantOpen && cart.length > 0 && checkoutStep !== "closed",
     retry: false,
   });
 
@@ -505,12 +519,17 @@ export default function PublicAiOrderPage() {
         setVoiceError("Live voice ordering is temporarily unavailable. You can still use the menu and cart.");
       };
 
-      socket.onclose = () => {
+      socket.onclose = (event) => {
         canSendVoiceAudioRef.current = false;
         mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
         mediaStreamRef.current = null;
         socketRef.current = null;
-        setVoiceState((current) => (current === "error" ? current : "ended"));
+        if (event.code !== 1000 && event.reason) {
+          setVoiceError(event.reason);
+          setVoiceState("error");
+        } else {
+          setVoiceState((current) => (current === "error" ? current : "ended"));
+        }
       };
     } catch (error) {
       audioContextRef.current?.close();
@@ -596,6 +615,7 @@ export default function PublicAiOrderPage() {
     lastAiMessage.text.toLowerCase().includes("email");
 
   const canCheckout =
+    restaurantOpen &&
     cart.length > 0 &&
     Boolean(customer.name) &&
     Boolean(customer.phone) &&
@@ -626,7 +646,7 @@ export default function PublicAiOrderPage() {
     );
   }
 
-  const open = isOpenNow(restaurant.openingHours);
+  const open = restaurantOpen;
   const nextOpen = getNextOpeningTime(restaurant.openingHours);
 
   return (

@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authApi, getPostAuthPath, getTenantScopedPath } from "@/lib/auth";
+import { stashTokenForHandoff } from "@/lib/token";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthShell } from "@/components/Auth/auth-shell";
 import { LogoLoadingScreen } from "@/components/shared/logo-loading-screen";
@@ -17,7 +17,7 @@ import {
 import { toast } from "sonner";
 
 export function VerifyOtpPage() {
-	const router = useRouter();
+	const queryClient = useQueryClient();
 	const pendingOtp = useAuthStore((state) => state.pendingOtp);
 	const setUser = useAuthStore((state) => state.setUser);
 	const setTokens = useAuthStore((state) => state.setTokens);
@@ -41,23 +41,25 @@ export function VerifyOtpPage() {
 		onSuccess: (response) => {
 			if (response.user) {
 				setUser(response.user);
-				if (response.accessToken) setTokens(response.accessToken);
-				toast.success(`Welcome, ${response.user.name.split(" ")[0]}!`);
-				const dest = getPostAuthPath(response.user, response.accessToken);
-				if (dest.startsWith("http")) {
-					window.location.replace(dest);
-				} else {
-					router.push(dest);
+				const rawTokens = (response as unknown as Record<string, unknown>).tokens as { accessToken?: string } | undefined;
+				const token = response.accessToken ?? rawTokens?.accessToken ?? null;
+				if (token) {
+					setTokens(token);
+					stashTokenForHandoff(token);
 				}
+				toast.success(`Welcome, ${response.user.name.split(" ")[0]}!`);
+				const dest = getPostAuthPath(response.user, token);
+				queryClient.clear();
+				window.location.href = dest.startsWith("http") ? dest : window.location.origin + dest;
 				return;
 			}
 
 			// Absolute fallback — should not reach here with the me() call above
-			router.push(
-				pendingOtp?.tenantSlug
-					? getTenantScopedPath(pendingOtp.tenantSlug, "/onboarding")
-					: "/onboarding",
-			);
+			const fallback = pendingOtp?.tenantSlug
+				? getTenantScopedPath(pendingOtp.tenantSlug, "/onboarding")
+				: "/onboarding";
+			queryClient.clear();
+			window.location.href = fallback.startsWith("http") ? fallback : window.location.origin + fallback;
 		},
 		onError: (error) => {
 			toast.error(error instanceof Error ? error.message : "Invalid or expired code. Try again.");
